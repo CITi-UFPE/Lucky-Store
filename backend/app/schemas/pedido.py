@@ -188,6 +188,9 @@ class PedidoResponse(BaseModel):
     id_loja: UUID
     id_vendedor: UUID
     id_cliente: UUID
+    # Indice da cotacao que gerou este pedido; None quando ele foi criado do
+    # zero. Vai para o cabecalho do documento impresso.
+    numero_cotacao: Optional[int] = None
     numero_os: str
     numero_nf: Optional[str]
     numero_oc: Optional[str]
@@ -229,6 +232,7 @@ _FINAL_STATUSES = {"Delivered", "Cancelled", "Delayed"}
 class PedidoListItemResponse(BaseModel):
     id: UUID
     id_cotacao: Optional[UUID] = None
+    numero_cotacao: Optional[int] = None
     numero_os: str
     data_pedido: date
     data_entrega: date

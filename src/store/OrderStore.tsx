@@ -170,6 +170,10 @@ export interface PaymentInstallment {
 export interface Order {
   id: string;
   os: string;
+  /** Índice da cotação que originou o pedido, quando ele veio de uma.
+   *  Vai para o cabeçalho do documento impresso — é o que liga a OS de volta
+   *  à cotação que o cliente aprovou. */
+  sourceQuoteNumber?: number | null;
   /** Creation timestamp (ms) — used for default newest-first sort */
   createdAt: number;
   orderDate: string;

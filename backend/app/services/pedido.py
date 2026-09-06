@@ -88,6 +88,16 @@ def _audit(db: Session, action: AuditAction, entity_id, changed_by: UUID,
     ))
 
 
+def _numero_cotacao(pedido: Pedido) -> Optional[int]:
+    """Indice da cotacao que gerou o pedido, ou None se ele nasceu do zero.
+
+    Sai como campo proprio na resposta em vez de a tela buscar a cotacao pelo
+    id: seriam duas requisicoes para imprimir uma folha, e na listagem uma por
+    linha. O relacionamento e carregado junto (joinedload) pelo mesmo motivo.
+    """
+    return pedido.cotacao.numero if pedido.cotacao else None
+
+
 def _economia(pedido: Pedido) -> Optional[Decimal]:
     if pedido.valor_venda is None or pedido.custo is None:
         return None
@@ -211,6 +221,7 @@ class PedidoService:
 
         db.refresh(pedido)
         pedido.economia = _economia(pedido)
+        pedido.numero_cotacao = _numero_cotacao(pedido)
         pedido.idempotent_replay = False
         return pedido
 
@@ -256,6 +267,7 @@ class PedidoService:
                 joinedload(Pedido.formas_pagamento),
                 joinedload(Pedido.fretes),
                 joinedload(Pedido.custo),
+                joinedload(Pedido.cotacao),
             )
             .filter(*base_filters)
             .order_by(desc(sort_col) if sort_dir == "desc" else asc(sort_col))
@@ -266,6 +278,7 @@ class PedidoService:
 
         for p in items:
             p.economia = _economia(p)
+            p.numero_cotacao = _numero_cotacao(p)
 
         return items, total, math.ceil(total / limit) if total else 0
 
@@ -278,6 +291,7 @@ class PedidoService:
         if not pedido:
             raise NotFoundException(f"Pedido {pedido_id} não encontrado")
         pedido.economia = _economia(pedido)
+        pedido.numero_cotacao = _numero_cotacao(pedido)
         return pedido
 
     @staticmethod

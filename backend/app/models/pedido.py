@@ -86,6 +86,11 @@ class Pedido(Base):
         Index("ux_pedidos_idempotency", "created_by", "idempotency_key", unique=True),
     )
 
+    # Somente leitura: o pedido aponta para a cotacao que o gerou, mas a cotacao
+    # nao precisa saber dos pedidos. Existe para a impressao poder mostrar o
+    # numero da cotacao de origem sem uma consulta por linha.
+    cotacao = relationship("Cotacao", foreign_keys=[id_cotacao], viewonly=True)
+
     loja = relationship("Loja", back_populates="pedidos")
     vendedor = relationship("Vendedor", back_populates="pedidos", foreign_keys=[id_vendedor])
     cliente = relationship("Cliente", back_populates="pedidos")

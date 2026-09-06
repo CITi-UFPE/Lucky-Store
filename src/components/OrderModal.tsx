@@ -173,6 +173,7 @@ const ORDER_PRINT_CSS = `
   .op-tipo{font-size:10px;font-weight:600;letter-spacing:.16em;text-transform:uppercase;color:#5b6b82}
   .op-num{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:24px;font-weight:600;
     line-height:1;font-variant-numeric:tabular-nums}
+  .op-origem{font-size:10.5px;color:#5b6b82;font-variant-numeric:tabular-nums;margin-top:1px}
   .op-pill{display:inline-block;margin-top:4px;font-size:10px;font-weight:600;padding:2px 9px;
     border-radius:999px;border:1px solid #c7e8d3;background:#e8f6ee;color:#137a42}
 
@@ -284,6 +285,13 @@ function OrderPrintTemplate({ form, valores }: {
         <div className="op-id">
           <span className="op-tipo">Ordem de Serviço</span>
           <span className="op-num">{form.os ? `OS-${form.os}` : 'OS'}</span>
+          {/* Só aparece quando o pedido veio de uma cotação. Fica aqui, no bloco
+              de identidade do documento, e não na grade de dados abaixo: a grade
+              tem 4 colunas por linha e um nono campo abriria uma linha nova com
+              três buracos. Aqui ele espelha o CNPJ sob o logo, do outro lado. */}
+          {form.sourceQuoteNumber != null && (
+            <span className="op-origem">Cotação nº {form.sourceQuoteNumber}</span>
+          )}
           <span className="op-pill">{form.status ? (ORDER_STATUS_LABELS[form.status] ?? form.status) : '—'}</span>
         </div>
       </div>

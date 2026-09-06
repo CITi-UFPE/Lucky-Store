@@ -122,6 +122,7 @@ def list_pedidos(
         PedidoListItemResponse(
             id=p.id,
             id_cotacao=p.id_cotacao,
+            numero_cotacao=getattr(p, "numero_cotacao", None),
             numero_os=p.numero_os,
             data_pedido=p.data_pedido,
             data_entrega=p.data_entrega,
