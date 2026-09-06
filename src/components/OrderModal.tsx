@@ -14,6 +14,7 @@ import { CalendarIcon, Plus, Trash2, Printer, CheckCircle2, Circle, ClipboardLis
 import { format, addDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
+import { formatarNumeroOS } from '@/lib/numero-os';
 import { toast } from 'sonner';
 import {
   Order, OrderItem, DirectSupplyOrderItem, ItemStatus, PaymentMethod, Company, Seller, OrderStatus, FreightCard,
@@ -284,7 +285,7 @@ function OrderPrintTemplate({ form, valores }: {
         </div>
         <div className="op-id">
           <span className="op-tipo">Ordem de Serviço</span>
-          <span className="op-num">{form.os ? `OS-${form.os}` : 'OS'}</span>
+          <span className="op-num">{formatarNumeroOS(form.os)}</span>
           {/* Só aparece quando o pedido veio de uma cotação. Fica aqui, no bloco
               de identidade do documento, e não na grade de dados abaixo: a grade
               tem 4 colunas por linha e um nono campo abriria uma linha nova com
