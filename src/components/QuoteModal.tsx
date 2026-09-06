@@ -321,8 +321,13 @@ function QuotePrintTemplate({ form, rows, total, vendedor }: {
             <div className="qp-title">{titleText}</div>
 
             <section className="qp-info">
+              {/* Empresa e Cliente sao coisas diferentes e aparecem sempre as
+                  duas: a organizacao que pediu a cotacao e a pessoa de contato
+                  dentro dela. Cliente era condicional e sumia quando vazio, o
+                  que fazia o documento parecer ter um campo so — e deixava a
+                  grade de 2 colunas com um buraco na ultima linha. */}
               <div><span>Empresa</span><b>{form.b2bCompany || '—'}</b></div>
-              {form.customer ? <div><span>Cliente</span><b>{form.customer}</b></div> : null}
+              <div><span>Cliente</span><b>{form.customer || '—'}</b></div>
               <div><span>CNPJ</span><b>{form.cnpj || '—'}</b></div>
               <div><span>Nº da Requisição</span><b>{form.requestNumber || '—'}</b></div>
               <div><span>Data da Requisição</span><b>{form.requestDate ? fmtDate(form.requestDate) : '—'}</b></div>
