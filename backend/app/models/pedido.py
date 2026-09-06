@@ -32,6 +32,14 @@ class Pedido(Base):
     # Cotação de origem (preenchido quando o pedido é criado a partir de uma conversão)
     id_cotacao = Column(UUID(as_uuid=True), ForeignKey("cotacoes.id"), nullable=True)
 
+    # Nome da PESSOA de contato dentro do cliente.
+    #
+    # A empresa mora em clientes.nome, que e para onde o formulario sempre
+    # mandou o nome digitado — e por isso os pedidos antigos ja estao certos
+    # sem precisar de conversao. O que faltava era onde guardar a pessoa: o
+    # pedido tinha um campo de nome so, e empresa e contato disputavam ele.
+    contato_cliente = Column(String(255), nullable=True)
+
     numero_os = Column(String(50), nullable=False)
     numero_nf = Column(String(50), nullable=True)
     numero_oc = Column(String(50), nullable=True)

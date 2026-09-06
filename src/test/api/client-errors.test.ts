@@ -49,8 +49,15 @@ describe('getApiError — 422 de validação', () => {
   });
 
   it('entende o campo ausente (type: missing)', () => {
+    // nome_cliente passou a ser a EMPRESA; o contato ganhou campo proprio.
     expect(getApiError(erroAxios(422, {
       detail: [{ type: 'missing', loc: ['body', 'nome_cliente'], msg: 'Field required' }],
+    }))).toBe('Empresa do cliente é obrigatório.');
+  });
+
+  it('distingue a empresa da pessoa de contato', () => {
+    expect(getApiError(erroAxios(422, {
+      detail: [{ type: 'missing', loc: ['body', 'contato_cliente'], msg: 'Field required' }],
     }))).toBe('Cliente é obrigatório.');
   });
 

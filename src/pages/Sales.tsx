@@ -235,6 +235,7 @@ export function pedidoListToOrder(item: PedidoListItem): Order {
     id: item.id,
     os: item.numero_os,
     sourceQuoteNumber: item.numero_cotacao ?? null,
+    customerContact: item.contato_cliente ?? '',
     createdAt: Date.now(),
     orderDate: item.data_pedido,
     customer: item.nome_cliente ?? '',

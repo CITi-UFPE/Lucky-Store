@@ -128,7 +128,9 @@ export interface CreatePedidoPayload {
   id_loja: string;
   id_vendedor: string;
   id_cotacao?: string;
+  /** A EMPRESA. A pessoa de contato vai em contato_cliente. */
   nome_cliente: string;
+  contato_cliente?: string;
   cpf_cnpj?: string;
   data_pedido: string;
   data_entrega: string;

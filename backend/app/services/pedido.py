@@ -140,6 +140,7 @@ class PedidoService:
             id_vendedor=data.id_vendedor,
             id_cliente=id_cliente,
             id_cotacao=data.id_cotacao,
+            contato_cliente=data.contato_cliente,
             numero_os=data.numero_os or _numero_provisorio(pedido_id),
             numero_nf=data.numero_nf,
             numero_oc=data.numero_oc,

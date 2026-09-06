@@ -26,6 +26,11 @@ def _fake_pedido(pedido_id=None):
     p.id_vendedor = uuid.uuid4()
     p.id_cliente = uuid.uuid4()
     p.id_cotacao = None
+    p.numero_cotacao = None
+    # A empresa fica em nome_cliente/clientes.nome; este e o contato, que nasce
+    # vazio nos pedidos que ja existiam. Sem definir, o MagicMock devolve outro
+    # MagicMock e o Pydantic recusa a resposta.
+    p.contato_cliente = None
     p.numero_os = "OS-001"
     p.numero_nf = None
     p.numero_oc = None

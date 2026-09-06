@@ -123,6 +123,7 @@ def list_pedidos(
             id=p.id,
             id_cotacao=p.id_cotacao,
             numero_cotacao=getattr(p, "numero_cotacao", None),
+            contato_cliente=p.contato_cliente,
             numero_os=p.numero_os,
             data_pedido=p.data_pedido,
             data_entrega=p.data_entrega,

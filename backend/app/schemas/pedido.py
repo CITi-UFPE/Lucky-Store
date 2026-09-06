@@ -98,7 +98,10 @@ class PedidoCreate(BaseModel):
     id_loja: UUID
     id_vendedor: UUID
     id_cotacao: Optional[UUID] = None
+    # nome_cliente e a EMPRESA (vai para clientes.nome, junto com o CNPJ);
+    # contato_cliente e a pessoa dentro dela.
     nome_cliente: str
+    contato_cliente: Optional[str] = None
     cpf_cnpj: Optional[str] = None
     numero_os: Optional[str] = None
     numero_nf: Optional[str] = None
@@ -136,6 +139,7 @@ class PedidoUpdate(BaseModel):
     id_loja: Optional[UUID] = None
     id_vendedor: Optional[UUID] = None
     id_cliente: Optional[UUID] = None
+    contato_cliente: Optional[str] = None
     numero_os: Optional[str] = None
     numero_nf: Optional[str] = None
     numero_oc: Optional[str] = None
@@ -191,6 +195,7 @@ class PedidoResponse(BaseModel):
     # Indice da cotacao que gerou este pedido; None quando ele foi criado do
     # zero. Vai para o cabecalho do documento impresso.
     numero_cotacao: Optional[int] = None
+    contato_cliente: Optional[str] = None
     numero_os: str
     numero_nf: Optional[str]
     numero_oc: Optional[str]
@@ -233,6 +238,7 @@ class PedidoListItemResponse(BaseModel):
     id: UUID
     id_cotacao: Optional[UUID] = None
     numero_cotacao: Optional[int] = None
+    contato_cliente: Optional[str] = None
     numero_os: str
     data_pedido: date
     data_entrega: date

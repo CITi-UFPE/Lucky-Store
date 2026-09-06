@@ -181,6 +181,10 @@ export interface Order {
   /** Client's company/enterprise name (b2b). When set, this is the primary identifier shown. */
   customerCompany?: string;
   cnpj: string;
+  /** Pessoa de contato dentro do cliente.
+   *  `customer` é a EMPRESA — é o que o formulário sempre gravou e o que o
+   *  CNPJ acompanha. Este campo é a pessoa, que antes não tinha onde caber. */
+  customerContact?: string;
   company: Company;
   seller: Seller;
   ocAfPed: string;

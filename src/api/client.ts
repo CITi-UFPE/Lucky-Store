@@ -77,7 +77,8 @@ apiClient.interceptors.response.use(
 const ROTULO_CAMPO: Record<string, string> = {
   id_loja: 'Empresa',
   id_vendedor: 'Vendedor',
-  nome_cliente: 'Cliente',
+  nome_cliente: 'Empresa do cliente',
+  contato_cliente: 'Cliente',
   cpf_cnpj: 'CPF/CNPJ',
   numero_oc: 'OC/AF/PED',
   numero_os: 'Nº da OS',

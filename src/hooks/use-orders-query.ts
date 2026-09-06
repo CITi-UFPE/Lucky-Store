@@ -27,6 +27,8 @@ export interface PedidoListItem {
   id_cotacao: string | null
   /** Índice da cotação que gerou o pedido; null quando ele foi criado do zero. */
   numero_cotacao: number | null
+  /** Pessoa de contato dentro do cliente. A empresa vem em nome_cliente. */
+  contato_cliente: string | null
   numero_os: string
   data_pedido: string
   data_entrega: string

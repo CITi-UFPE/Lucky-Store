@@ -44,7 +44,12 @@ class ConversaoCotacaoService:
         # Resolve o cliente pela regra compartilhada. Antes, sem CNPJ, esta
         # conversao casava por NOME — dois "Joao" sem documento viravam o mesmo
         # cliente aqui e clientes diferentes na criacao de pedido.
-        cliente = obter_ou_criar_cliente(db, cotacao.cliente, cotacao.cnpj_cliente)
+        # A cotacao separa empresa (b2b_company) de pessoa (cliente); o pedido
+        # passou a separar tambem. O cadastro de cliente e da EMPRESA — e dela
+        # que o CNPJ e —, e a pessoa vai para contato_cliente. Antes os dois
+        # entravam fundidos: o b2b_company era descartado na conversao.
+        empresa = (cotacao.b2b_company or "").strip() or cotacao.cliente
+        cliente = obter_ou_criar_cliente(db, empresa, cotacao.cnpj_cliente)
 
         # O numero da OS NAO sai aqui — ver o comentario depois do db.add.
         pedido_id = uuid4()
@@ -54,6 +59,7 @@ class ConversaoCotacaoService:
             id_vendedor=cotacao.id_vendedor,
             id_cliente=cliente.id,
             id_cotacao=cotacao.id,
+            contato_cliente=(cotacao.cliente or "").strip() or None,
             numero_os=_numero_provisorio(pedido_id),
             numero_nf=None,
             data_pedido=date.today(),

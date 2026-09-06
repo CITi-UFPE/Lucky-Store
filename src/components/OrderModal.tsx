@@ -178,7 +178,10 @@ const ORDER_PRINT_CSS = `
   .op-pill{display:inline-block;margin-top:4px;font-size:10px;font-weight:600;padding:2px 9px;
     border-radius:999px;border:1px solid #c7e8d3;background:#e8f6ee;color:#137a42}
 
-  .op-meta{display:grid;grid-template-columns:repeat(4,1fr);gap:7px 16px}
+  /* 3 colunas, e nao 4: com Empresa e Cliente separados sao 9 campos, que em 4
+     colunas deixariam a ultima linha com um item e tres buracos. Em 3 fecham
+     exatas, e cada campo fica mais largo — ajuda nome de empresa comprido. */
+  .op-meta{display:grid;grid-template-columns:repeat(3,1fr);gap:7px 16px}
   .op-meta>div{display:flex;flex-direction:column;min-width:0}
   .op-meta .k{font-size:9px;font-weight:600;letter-spacing:.11em;text-transform:uppercase;color:#93a3b6}
   .op-meta .v{font-size:11px;font-weight:500;overflow-wrap:anywhere}
@@ -298,7 +301,8 @@ function OrderPrintTemplate({ form, valores }: {
       </div>
 
       <div className="op-meta">
-        <div><span className="k">Cliente</span><span className="v">{form.customerCompany?.trim() || form.customer || '—'}</span></div>
+        <div><span className="k">Empresa</span><span className="v">{form.customerCompany?.trim() || form.customer || '—'}</span></div>
+        <div><span className="k">Cliente</span><span className="v">{form.customerContact || '—'}</span></div>
         <div><span className="k">CPF/CNPJ</span><span className="v">{form.cnpj || '—'}</span></div>
         <div><span className="k">Vendedor</span><span className="v">{form.seller || '—'}</span></div>
         <div><span className="k">OC/AF/PED</span><span className="v">{form.ocAfPed || '—'}</span></div>
@@ -501,6 +505,7 @@ export function OrderModal({ open, onClose, order, onSave, nextOS, prefill }: Pr
         ...emptyOrder(nextOS?.() || ''),
         customer: prefill.customer,
         customerCompany: prefill.customerCompany || '',
+        customerContact: prefill.customerContact || '',
         cnpj: prefill.cnpj,
         company: prefill.company,
         seller: prefill.seller,
@@ -641,7 +646,7 @@ export function OrderModal({ open, onClose, order, onSave, nextOS, prefill }: Pr
     const missing: string[] = [];
     if (!form.orderDate) missing.push('Data do Pedido');
     if (!form.deliveryDate) missing.push('Data de Entrega');
-    if (!(form.customer || '').trim()) missing.push('Cliente');
+    if (!(form.customer || '').trim()) missing.push('Empresa do cliente');
     if (!(form.ocAfPed || '').trim()) missing.push('OC/AF/PED');
     if (!(form.company || '').trim()) missing.push('Empresa');
     if (!(form.seller || '').trim()) missing.push('Vendedor');
@@ -869,6 +874,7 @@ export function OrderModal({ open, onClose, order, onSave, nextOS, prefill }: Pr
         id_vendedor: vendorIdByName(o.seller ?? ''),
         id_cotacao: sourceQuoteId || undefined,
         nome_cliente: o.customer,
+        contato_cliente: (o.customerContact || '').trim() || undefined,
         cpf_cnpj: o.cnpj || undefined,
         data_pedido: o.orderDate,
         data_entrega: o.deliveryDate,
@@ -1112,19 +1118,28 @@ export function OrderModal({ open, onClose, order, onSave, nextOS, prefill }: Pr
             {form.customerCompany ? (
               <>
                 <div>
-                  <Label>Cliente <span className="text-destructive">*</span></Label>
+                  <Label>Empresa <span className="text-destructive">*</span></Label>
                   <Input readOnly value={form.customerCompany} className="bg-[#F4F7FB] border-[#E2E8F1] font-semibold" />
                 </div>
                 <div>
-                  <Label>Contato</Label>
-                  <Input className="bg-[#FBFCFE] border-[#E2E8F1]" value={form.customer || ''} onChange={e => set('customer', e.target.value)} onKeyDown={handleEnterBlur} />
+                  <Label>Cliente</Label>
+                  <Input className="bg-[#FBFCFE] border-[#E2E8F1]" value={form.customerContact || ''} onChange={e => set('customerContact', e.target.value)} onKeyDown={handleEnterBlur} placeholder="Pessoa de contato" />
                 </div>
               </>
             ) : (
-              <div>
-                <Label>Cliente <span className="text-destructive">*</span></Label>
-                <Input className="bg-[#FBFCFE] border-[#E2E8F1]" value={form.customer || ''} onChange={e => set('customer', e.target.value)} onKeyDown={handleEnterBlur} />
-              </div>
+              <>
+                {/* O campo que antes se chamava "Cliente" virou "Empresa": e o
+                    mesmo destino de sempre (clientes.nome, que acompanha o
+                    CNPJ), so com o nome certo. O "Cliente" agora e a pessoa. */}
+                <div>
+                  <Label>Empresa <span className="text-destructive">*</span></Label>
+                  <Input className="bg-[#FBFCFE] border-[#E2E8F1]" value={form.customer || ''} onChange={e => set('customer', e.target.value)} onKeyDown={handleEnterBlur} />
+                </div>
+                <div>
+                  <Label>Cliente</Label>
+                  <Input className="bg-[#FBFCFE] border-[#E2E8F1]" value={form.customerContact || ''} onChange={e => set('customerContact', e.target.value)} onKeyDown={handleEnterBlur} placeholder="Pessoa de contato" />
+                </div>
+              </>
             )}
             <div>
               <Label>CPF/CNPJ</Label>
