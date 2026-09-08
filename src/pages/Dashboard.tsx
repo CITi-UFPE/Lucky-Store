@@ -757,7 +757,7 @@ export default function Dashboard() {
                       accent="text-blue-700"
                     />
                     <KpiCard
-                      label="Gastos Fixos"
+                      label="Custo Fixo"
                       value={BRL(gastosFixos)}
                       sub="Despesas registradas"
                       accent="text-orange-500"

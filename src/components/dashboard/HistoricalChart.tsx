@@ -17,7 +17,7 @@ const LINE_CONFIG = [
   { key: 'faturamento',         label: 'Faturamento',        color: '#0f4c5c' },
   { key: 'custo',               label: 'Custo',              color: '#ef4444' },
   { key: 'lucro',               label: 'Lucro',              color: '#16a34a' },
-  { key: 'gastos_fixos',        label: 'Gastos Fixos',       color: '#f59e0b' },
+  { key: 'gastos_fixos',        label: 'Custo Fixo',         color: '#f59e0b' },
   { key: 'ganhos_financeiros',  label: 'Ganhos Financeiros', color: '#2F6BFF' },
   { key: 'fretes',              label: 'Fretes',             color: '#9b6bff' },
   { key: 'ano_anterior',        label: 'Fat. Ano Anterior',  color: '#9ca3af', dashed: true },
