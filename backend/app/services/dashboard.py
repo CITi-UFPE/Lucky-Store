@@ -6,7 +6,7 @@ from uuid import UUID
 from sqlalchemy import func, case, or_, and_
 from sqlalchemy.orm import Session
 
-from app.models.pedido import Pedido, CustoPedido, Frete
+from app.models.pedido import Pedido, CustoPedido, Frete, PEDIDO_ATIVO, PEDIDO_CANCELADO
 from app.models.produto import Produto
 from app.models.cotacao import Cotacao
 from app.models.despesa import Despesa
@@ -112,24 +112,24 @@ def _aggregate(
     q = (
         db.query(
             func.coalesce(func.sum(
-                case((Pedido.is_cancelled.isnot(True), Pedido.valor_venda), else_=0)
+                case((PEDIDO_ATIVO, Pedido.valor_venda), else_=0)
             ), 0).label("receita"),
             func.coalesce(func.sum(
-                case((Pedido.is_cancelled.isnot(True), CustoPedido.custo_produto_final), else_=0)
+                case((PEDIDO_ATIVO, CustoPedido.custo_produto_final), else_=0)
             ), 0).label("custo_produto"),
             func.coalesce(func.sum(
-                case((Pedido.is_cancelled.isnot(True), CustoPedido.custo_servico), else_=0)
+                case((PEDIDO_ATIVO, CustoPedido.custo_servico), else_=0)
             ), 0).label("custo_servico"),
             func.coalesce(func.sum(
-                case((Pedido.is_cancelled.isnot(True), CustoPedido.imposto_compra), else_=0)
+                case((PEDIDO_ATIVO, CustoPedido.imposto_compra), else_=0)
             ), 0).label("imposto_compra"),
             func.coalesce(func.sum(
-                case((Pedido.is_cancelled.isnot(True), CustoPedido.imposto_venda), else_=0)
+                case((PEDIDO_ATIVO, CustoPedido.imposto_venda), else_=0)
             ), 0).label("imposto_venda"),
-            func.count(case((Pedido.is_cancelled.isnot(True), 1))).label("num_pedidos"),
-            func.count(case((Pedido.is_cancelled.is_(True), 1))).label("num_cancelamentos"),
+            func.count(case((PEDIDO_ATIVO, 1))).label("num_pedidos"),
+            func.count(case((PEDIDO_CANCELADO, 1))).label("num_cancelamentos"),
             func.coalesce(func.sum(
-                case((Pedido.is_cancelled.is_(True), Pedido.valor_venda), else_=0)
+                case((PEDIDO_CANCELADO, Pedido.valor_venda), else_=0)
             ), 0).label("valor_cancelamentos"),
         )
         .outerjoin(CustoPedido, CustoPedido.id_pedido == Pedido.id)
@@ -227,7 +227,7 @@ def get_kpis(
         .filter(
             Pedido.deleted_at.is_(None),
             Pedido.is_rma.isnot(True),
-            Pedido.is_cancelled.isnot(True),
+            PEDIDO_ATIVO,
             Pedido.data_pedido == today,
         )
     )
@@ -273,16 +273,16 @@ def get_breakdown_by_company(
         db.query(
             Loja.nome.label("nome"),
             func.coalesce(func.sum(
-                case((Pedido.is_cancelled.isnot(True), Pedido.valor_venda), else_=0)
+                case((PEDIDO_ATIVO, Pedido.valor_venda), else_=0)
             ), 0).label("receita"),
             func.coalesce(func.sum(
-                case((Pedido.is_cancelled.isnot(True),
+                case((PEDIDO_ATIVO,
                       CustoPedido.custo_produto_final + CustoPedido.custo_servico), else_=0)
             ), 0).label("custo"),
-            func.count(case((Pedido.is_cancelled.isnot(True), 1))).label("num_pedidos"),
-            func.count(case((Pedido.is_cancelled.is_(True), 1))).label("num_cancelamentos"),
+            func.count(case((PEDIDO_ATIVO, 1))).label("num_pedidos"),
+            func.count(case((PEDIDO_CANCELADO, 1))).label("num_cancelamentos"),
             func.coalesce(func.sum(
-                case((Pedido.is_cancelled.is_(True), Pedido.valor_venda), else_=0)
+                case((PEDIDO_CANCELADO, Pedido.valor_venda), else_=0)
             ), 0).label("valor_cancelamentos"),
         )
         .join(Loja, Loja.id == Pedido.id_loja)
@@ -295,7 +295,7 @@ def get_breakdown_by_company(
         )
         .group_by(Loja.id, Loja.nome)
         .order_by(func.sum(
-            case((Pedido.is_cancelled.isnot(True), Pedido.valor_venda), else_=0)
+            case((PEDIDO_ATIVO, Pedido.valor_venda), else_=0)
         ).desc())
     )
     if id_loja:
@@ -339,16 +339,16 @@ def get_breakdown_by_seller(
             Vendedor.id.label("id_vendedor"),
             Vendedor.nome.label("nome"),
             func.coalesce(func.sum(
-                case((Pedido.is_cancelled.isnot(True), Pedido.valor_venda), else_=0)
+                case((PEDIDO_ATIVO, Pedido.valor_venda), else_=0)
             ), 0).label("receita"),
             func.coalesce(func.sum(
-                case((Pedido.is_cancelled.isnot(True),
+                case((PEDIDO_ATIVO,
                       CustoPedido.custo_produto_final + CustoPedido.custo_servico), else_=0)
             ), 0).label("custo"),
-            func.count(case((Pedido.is_cancelled.isnot(True), 1))).label("num_pedidos"),
-            func.count(case((Pedido.is_cancelled.is_(True), 1))).label("num_cancelamentos"),
+            func.count(case((PEDIDO_ATIVO, 1))).label("num_pedidos"),
+            func.count(case((PEDIDO_CANCELADO, 1))).label("num_cancelamentos"),
             func.coalesce(func.sum(
-                case((Pedido.is_cancelled.is_(True), Pedido.valor_venda), else_=0)
+                case((PEDIDO_CANCELADO, Pedido.valor_venda), else_=0)
             ), 0).label("valor_cancelamentos"),
         )
         .join(Vendedor, Vendedor.id == Pedido.id_vendedor)
@@ -361,7 +361,7 @@ def get_breakdown_by_seller(
         )
         .group_by(Vendedor.id, Vendedor.nome)
         .order_by(func.sum(
-            case((Pedido.is_cancelled.isnot(True), Pedido.valor_venda), else_=0)
+            case((PEDIDO_ATIVO, Pedido.valor_venda), else_=0)
         ).desc())
     )
     if id_loja:
@@ -552,14 +552,14 @@ def get_daily_series(
             db.query(
                 Pedido.data_pedido.label("data"),
                 func.coalesce(func.sum(
-                    case((Pedido.is_cancelled.isnot(True), Pedido.valor_venda), else_=0)
+                    case((PEDIDO_ATIVO, Pedido.valor_venda), else_=0)
                 ), 0).label("receita"),
                 func.coalesce(func.sum(
-                    case((Pedido.is_cancelled.isnot(True),
+                    case((PEDIDO_ATIVO,
                           CustoPedido.custo_produto_final + CustoPedido.custo_servico), else_=0)
                 ), 0).label("custo"),
                 func.coalesce(func.sum(
-                    case((Pedido.is_cancelled.isnot(True),
+                    case((PEDIDO_ATIVO,
                           func.coalesce(Pedido.multa, 0) + func.coalesce(Pedido.juros, 0)), else_=0)
                 ), 0).label("ganhos"),
             )
@@ -774,7 +774,7 @@ def get_card_spend(
         .filter(
             Pedido.deleted_at.is_(None),
             Pedido.is_rma.isnot(True),
-            Pedido.is_cancelled.isnot(True),
+            PEDIDO_ATIVO,
             Produto.sub_compras.isnot(None),
         )
     )
@@ -834,7 +834,7 @@ def get_counts(
         ped_base = ped_base.filter(Pedido.id_loja == id_loja)
 
     pedidos_abertos = ped_base.filter(
-        Pedido.is_cancelled.isnot(True),
+        PEDIDO_ATIVO,
         Pedido.status != _PEDIDO_ENTREGUE,
     ).scalar() or 0
     pedidos_entregues = ped_base.filter(
@@ -872,7 +872,7 @@ def get_counts(
         .join(Pedido, Pedido.id == Produto.id_pedido)
         .filter(
             Pedido.deleted_at.is_(None),
-            Pedido.is_cancelled.isnot(True),
+            PEDIDO_ATIVO,
             Produto.status == "To Buy",
         )
     )

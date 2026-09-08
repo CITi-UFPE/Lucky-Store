@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime, timezone
-from sqlalchemy import Column, String, Boolean, Integer, Date, DateTime, Text, Numeric, ForeignKey, Sequence, Index  # type: ignore[import]
+from sqlalchemy import Column, String, Boolean, Integer, Date, DateTime, Text, Numeric, ForeignKey, Sequence, Index, and_, or_  # type: ignore[import]
 from sqlalchemy.dialects.postgresql import UUID, JSONB  # type: ignore[import]
 from sqlalchemy.orm import relationship
 from app.database import Base
@@ -109,6 +109,34 @@ class Pedido(Base):
 
     def __repr__(self):
         return f"<Pedido {self.numero_os} status={self.status}>"
+
+
+# ── Cancelamento ──────────────────────────────────────────────────────────────
+#
+# "Pedido cancelado" estava escrito em dois lugares que podiam discordar:
+# a coluna is_cancelled e o status. Quem manda e o STATUS — e o que o vendedor
+# ve e define na tela. is_cancelled e espelho dele, mantido por
+# _sincronizar_cancelamento() em app/services/pedido.py.
+#
+# Antes eles divergiam de verdade, e o relatorio pagava a conta:
+#
+# - Pedido criado JA cancelado (switch "Pedido Cancelado?" ligado antes do
+#   primeiro salvar) entrava com status='Cancelled' e is_cancelled=False,
+#   porque a tela nunca mandou o campo e o create so copiava o payload. O
+#   dashboard filtrava so pela flag, entao esse pedido contava como venda: ele
+#   inflava a receita e, pior, entrava no divisor do ticket medio. Seis pedidos
+#   com quatro cancelados davam ticket sobre 6, nao sobre 2.
+# - Pedido cancelado e depois reaberto ficava com is_cancelled=True para
+#   sempre, porque change_status so sabia LIGAR a flag. Esse some do relatorio
+#   embora tenha voltado a ser venda.
+#
+# O OR abaixo e defensivo: depois da migration e da sincronizacao na escrita os
+# dois lados sempre concordam, mas ler pelos dois deixa o relatorio certo mesmo
+# se alguma linha antiga escapar.
+STATUS_CANCELADO = "Cancelled"
+
+PEDIDO_CANCELADO = or_(Pedido.is_cancelled.is_(True), Pedido.status == STATUS_CANCELADO)
+PEDIDO_ATIVO = and_(Pedido.is_cancelled.isnot(True), Pedido.status != STATUS_CANCELADO)
 
 
 class PedidoFormaPagamento(Base):

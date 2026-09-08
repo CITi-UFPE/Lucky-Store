@@ -7,7 +7,7 @@ from uuid import UUID
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from app.models.pedido import Frete, Pedido
+from app.models.pedido import Frete, Pedido, PEDIDO_ATIVO
 
 
 class FretesService:
@@ -17,7 +17,7 @@ class FretesService:
             db.query(Frete, Pedido)
             .join(Pedido, Frete.id_pedido == Pedido.id)
             .filter(Pedido.deleted_at.is_(None))
-            .filter(Pedido.is_cancelled.is_(False))
+            .filter(PEDIDO_ATIVO)
             .filter(Frete.id_pedido.isnot(None))
         )
 

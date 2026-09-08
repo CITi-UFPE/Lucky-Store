@@ -38,7 +38,10 @@ export function adaptPedidoToOrder(p: PedidoListItem): Order {
       return s;
     })(),
     isRMA: p.is_rma ?? false,
-    cancelled: p.is_cancelled ?? false,
+    // O badge ja tratava status==='Cancelled' como cancelado; o switch do
+    // modal olhava so a flag. Pedido criado ja cancelado aparecia com o
+    // badge vermelho e o switch desligado. Mesma regra do backend agora.
+    cancelled: (p.is_cancelled ?? false) || p.status === 'Cancelled',
     observations: p.observacao ?? '',
     initialProductCost: 0,
     finalProductCost: 0,

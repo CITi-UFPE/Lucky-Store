@@ -254,7 +254,10 @@ export function pedidoListToOrder(item: PedidoListItem): Order {
     deliveryDate: item.data_entrega,
     status: getEffectiveStatus(item.status, item.is_cancelled ?? false, item.data_entrega),
     isRMA: item.is_rma ?? false,
-    cancelled: item.is_cancelled ?? false,
+    // Mesma regra do getEffectiveStatus acima e do backend: cancelado e
+    // status 'Cancelled', a flag e so o espelho. Sem isto, pedido criado
+    // ja cancelado abre o modal com o switch desligado.
+    cancelled: (item.is_cancelled ?? false) || item.status === 'Cancelled',
     observations: item.observacao ?? '',
     initialProductCost: parseFloat(item.custo?.custo_produto_inicial ?? '0') || 0,
     finalProductCost:   parseFloat(item.custo?.custo_produto_final   ?? '0') || 0,

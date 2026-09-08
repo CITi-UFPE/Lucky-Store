@@ -7,7 +7,7 @@ from uuid import UUID, uuid4
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import asc, desc, text
 from sqlalchemy.exc import IntegrityError
-from app.models.pedido import Pedido, PedidoFormaPagamento, CustoPedido
+from app.models.pedido import Pedido, PedidoFormaPagamento, CustoPedido, STATUS_CANCELADO
 from app.models.cliente import Cliente
 from app.models.produto import Produto
 from app.models.rma import Rma
@@ -105,6 +105,17 @@ def _economia(pedido: Pedido) -> Optional[Decimal]:
     return pedido.valor_venda - custo_total
 
 
+def _sincronizar_cancelamento(pedido: Pedido) -> None:
+    """Deixa is_cancelled igual a (status == 'Cancelled').
+
+    Um pedido cancelado e um pedido com status 'Cancelled'. is_cancelled e so
+    o espelho disso, mantido porque a API e a tela ja o expoem. Toda escrita
+    que mexe no status passa por aqui, para os dois nunca discordarem — ver o
+    comentario longo em app/models/pedido.py.
+    """
+    pedido.is_cancelled = pedido.status == STATUS_CANCELADO
+
+
 def _get_or_create_cliente(db: Session, nome: str, cpf_cnpj: Optional[str]) -> UUID:
     # A regra de "e o mesmo cliente?" mora em cliente_identidade, compartilhada
     # com cotacao.py e conversao_cotacao.py. Antes cada um decidia sozinho.
@@ -131,6 +142,13 @@ class PedidoService:
 
         id_cliente = _get_or_create_cliente(db, data.nome_cliente, data.cpf_cnpj)
 
+        # status e is_cancelled dizem a mesma coisa; se qualquer um dos dois
+        # chegar dizendo "cancelado", o pedido nasce cancelado dos dois lados.
+        # A tela so manda o status, e era assim que nascia o pedido cancelado
+        # com is_cancelled=False que o dashboard contava como venda.
+        cancelado = data.is_cancelled or data.status == STATUS_CANCELADO
+        status_inicial = STATUS_CANCELADO if cancelado else data.status
+
         # O numero da OS NAO sai aqui. Ele so e pedido depois que o INSERT
         # passou, mais abaixo — ver o comentario no try.
         pedido_id = uuid4()
@@ -146,9 +164,9 @@ class PedidoService:
             numero_oc=data.numero_oc,
             data_pedido=data.data_pedido,
             data_entrega=data.data_entrega,
-            status=data.status,
+            status=status_inicial,
             is_rma=data.is_rma,
-            is_cancelled=data.is_cancelled,
+            is_cancelled=cancelado,
             is_direct_billing=data.is_direct_billing,
             valor_venda=data.valor_venda,
             parcelas=data.parcelas,
@@ -325,6 +343,11 @@ class PedidoService:
         for field, value in dump.items():
             setattr(pedido, field, value)
 
+        # Nao ha sincronizacao de cancelamento aqui de proposito: PedidoUpdate
+        # nao expoe status nem is_cancelled, entao este caminho nao consegue
+        # cancelar nem descancelar. Quem faz isso e change_status. Se algum dia
+        # um desses campos entrar no schema, test_pedido_cancelamento.py avisa.
+
         # Sincroniza formas de pagamento (relação) — substitui o conjunto atual.
         if formas_data is not None:
             for fp in list(pedido.formas_pagamento):
@@ -363,8 +386,10 @@ class PedidoService:
         pedido = PedidoService.get_by_id(db, pedido_id)
         old_status = pedido.status
         pedido.status = new_status
-        if new_status == "Cancelled":
-            pedido.is_cancelled = True
+        # Antes isto so LIGAVA a flag. Pedido cancelado e depois reaberto ficava
+        # com is_cancelled=True para sempre e sumia do relatorio, mesmo tendo
+        # voltado a ser venda.
+        _sincronizar_cancelamento(pedido)
 
         db.add(StatusHistory(
             entity_type=EntityType.PEDIDO,
