@@ -259,6 +259,11 @@ export interface VendedorItem {
   id: string
   nome: string
   id_loja: string
+  /** A rota /vendedores ja devolve os dois; faltavam aqui. O cartao de contato
+   *  no rodape da cotacao da BTech le phone e email deste registro — e ele e
+   *  por loja, entao o mesmo vendedor tem um telefone para cada empresa. */
+  email: string | null
+  phone: string | null
 }
 
 export function useVendedores() {

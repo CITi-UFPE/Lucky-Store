@@ -468,8 +468,16 @@ export function OrderModal({ open, onClose, order, onSave, nextOS, prefill }: Pr
   const qc = useQueryClient();
   const { data: vendedoresData } = useVendedores();
   const vendedores = vendedoresData?.items ?? [];
-  const vendorIdByName = (nome: string) =>
-    vendedores.find(v => v.nome === nome)?.id ?? VENDEDOR_IDS[nome] ?? '';
+  // Mesmo motivo do QuoteModal: /vendedores traz todas as lojas e o mesmo nome
+  // se repete entre elas, entao casar so pelo nome gravava o pedido no cadastro
+  // do vendedor de outra empresa. Procura dentro da loja escolhida primeiro.
+  const vendorIdByName = (nome: string, empresa?: string) => {
+    const idLoja = empresa ? LOJA_IDS[empresa] : undefined;
+    const naLoja = idLoja
+      ? vendedores.find(v => v.nome === nome && v.id_loja === idLoja)
+      : undefined;
+    return (naLoja ?? vendedores.find(v => v.nome === nome))?.id ?? VENDEDOR_IDS[nome] ?? '';
+  };
 
   const { mutate: createOrder, isPending: isCreating } = useCreateOrder();
   const { mutate: updateOrder, isPending: isUpdating } = useUpdateOrder(order?.id ?? '');
@@ -760,7 +768,7 @@ export function OrderModal({ open, onClose, order, onSave, nextOS, prefill }: Pr
         ...pagamentoPayload,
       };
       const statusChanged = order && o.status !== order.status;
-      const sellerId = vendorIdByName((o.seller as string) ?? '');
+      const sellerId = vendorIdByName((o.seller as string) ?? '', o.company);
 
       // ── Item diff ───────────────────────────────────────────────────────────
       const origItems = order?.items ?? [];
@@ -871,7 +879,7 @@ export function OrderModal({ open, onClose, order, onSave, nextOS, prefill }: Pr
     } else {
       const payload: CreatePedidoPayload = {
         id_loja: LOJA_IDS[o.company] ?? '',
-        id_vendedor: vendorIdByName(o.seller ?? ''),
+        id_vendedor: vendorIdByName(o.seller ?? '', o.company),
         id_cotacao: sourceQuoteId || undefined,
         nome_cliente: o.customer,
         contato_cliente: (o.customerContact || '').trim() || undefined,

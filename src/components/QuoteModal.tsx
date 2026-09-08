@@ -461,8 +461,21 @@ export function QuoteModal({ open, onClose, quote, onSave, onDelete, nextIndex }
 
   const { data: vendedoresData } = useVendedores();
   const vendedores = vendedoresData?.items ?? [];
-  const vendorIdByName = (nome: string) =>
-    vendedores.find(v => v.nome === nome)?.id ?? VENDEDOR_IDS[nome] ?? '';
+  // /vendedores devolve os vendedores de TODAS as lojas, e o mesmo nome existe
+  // em mais de uma (a unicidade no banco e por (id_loja, nome)). Casar so pelo
+  // nome pegava o primeiro da lista — de qualquer loja —, entao um pedido da
+  // BTech podia ser gravado no Alcides da Lucky Store. Agora procura primeiro
+  // dentro da loja escolhida; o fallback pelo nome fica para o caso de o
+  // vendedor nao estar cadastrado nela, para nao travar o salvamento.
+  const vendedorDaLoja = (nome: string, empresa?: string) => {
+    const idLoja = empresa ? LOJA_IDS[empresa] : undefined;
+    return (
+      (idLoja ? vendedores.find(v => v.nome === nome && v.id_loja === idLoja) : undefined)
+      ?? vendedores.find(v => v.nome === nome)
+    );
+  };
+  const vendorIdByName = (nome: string, empresa?: string) =>
+    vendedorDaLoja(nome, empresa)?.id ?? VENDEDOR_IDS[nome] ?? '';
 
   const { mutate: createQuote, isPending: isCreating } = useCreateQuote();
   const { mutate: updateQuote, isPending: isUpdating } = useUpdateQuote(quote?.id ?? '');
@@ -668,7 +681,7 @@ export function QuoteModal({ open, onClose, quote, onSave, onDelete, nextIndex }
     } else {
       const payload: CreateCotacaoPayload = {
         id_loja: LOJA_IDS[q.company] ?? '',
-        id_vendedor: vendorIdByName(q.seller ?? ''),
+        id_vendedor: vendorIdByName(q.seller ?? '', q.company),
         cliente: q.customer,
         data_cotacao: q.requestDate,
         cnpj_cliente: q.cnpj || undefined,
@@ -766,9 +779,11 @@ export function QuoteModal({ open, onClose, quote, onSave, onDelete, nextIndex }
   const activePhases = (Object.keys(form.phases) as QuotePhaseKey[]).filter(k => form.phases[k].active);
   const marginBarW = Math.max(0, Math.min(margin, 100));
 
-  // Vendedor da cotacao, para o cartao do rodape da BTech. Casa pelo nome, que e
-  // o que o formulario guarda; sem correspondencia o cartao cai no nome digitado.
-  const vendedorDaCotacao = vendedores.find(v => v.nome === form.seller);
+  // Vendedor da cotacao, para o cartao do rodape da BTech. Casa pelo nome DENTRO
+  // da loja da cotacao: o mesmo vendedor tem um cadastro por loja, com telefone
+  // proprio, e casar so pelo nome imprimia o contato de outra empresa no
+  // timbrado. Sem correspondencia o cartao cai no nome digitado.
+  const vendedorDaCotacao = vendedorDaLoja(form.seller ?? '', form.company);
 
   /* ---------------- Print rows (regular + direct-supply items) ---------------- */
   const printRows: PrintRow[] = [
