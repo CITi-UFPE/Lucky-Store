@@ -1,6 +1,6 @@
 /**
- * O card "Total de Pedidos" do Resumo do Mes contava a exclusao dos cancelados
- * duas vezes.
+ * O card de pedidos do Resumo do Mes contava a exclusao dos cancelados duas
+ * vezes.
  *
  * No backend, num_pedidos e num_cancelamentos sao contagens DISJUNTAS sobre as
  * mesmas linhas — num_pedidos ja e "quantos NAO estao cancelados":
@@ -28,17 +28,17 @@ interface Kpis { num_pedidos: number; num_cancelamentos: number }
 const total = (k: Kpis) => k.num_pedidos + k.num_cancelamentos;
 const validos = (k: Kpis) => k.num_pedidos;
 
-describe('Resumo do Mes — Total de Pedidos', () => {
+describe('Resumo do Mes — Pedidos Validos', () => {
   const cenario: Kpis = { num_pedidos: 6, num_cancelamentos: 4 };
-
-  it('o total soma validos e cancelados, porque as contagens sao disjuntas', () => {
-    expect(total(cenario)).toBe(10);
-  });
 
   it('os validos sao num_pedidos, nao num_pedidos menos os cancelados', () => {
     expect(validos(cenario)).toBe(6);
     // A conta antiga dava 2 — um numero que nao corresponde a nada no banco.
     expect(validos(cenario)).not.toBe(cenario.num_pedidos - cenario.num_cancelamentos);
+  });
+
+  it('o total do subtitulo soma as duas contagens, que sao disjuntas', () => {
+    expect(total(cenario)).toBe(10);
   });
 
   it('sem cancelamento, total e validos coincidem', () => {
@@ -57,9 +57,18 @@ describe('Resumo do Mes — Total de Pedidos', () => {
 describe('o card usa essas contas', () => {
   const fonte = readFileSync(resolve(__dirname, '..', 'pages/Dashboard.tsx'), 'utf-8');
 
-  it('o valor do card e a soma das duas contagens', () => {
+  it('o card mostra num_pedidos, sob um rotulo que diz o que ele e', () => {
+    // Colado, e nao dois toContain soltos: `value={String(kpis?.num_pedidos)}`
+    // tambem aparece no card "Pedidos" da aba Vendas, entao separados eles
+    // passariam mesmo se ESTE card voltasse a mostrar outra coisa.
+    expect(fonte).toMatch(
+      /label="Pedidos Válidos"\s*\n\s*value=\{String\(kpis\?\.num_pedidos \?\? 0\)\}/
+    );
+  });
+
+  it('o subtitulo traz o total, somando as duas contagens', () => {
     expect(fonte).toContain(
-      "value={String((kpis?.num_pedidos ?? 0) + (kpis?.num_cancelamentos ?? 0))}"
+      "${(kpis?.num_pedidos ?? 0) + (kpis?.num_cancelamentos ?? 0)} no total"
     );
   });
 

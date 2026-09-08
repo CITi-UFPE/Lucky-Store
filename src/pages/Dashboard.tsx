@@ -662,17 +662,18 @@ export default function Dashboard() {
                 {kpisLoading ? kpiSkeleton(4) : (
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                     {/* num_pedidos e num_cancelamentos sao contagens DISJUNTAS
-                        no backend: num_pedidos ja exclui os cancelados. O card
-                        mostrava num_pedidos como "Total" e ainda subtraia os
-                        cancelados dele para achar os "concluidos" — contava a
-                        exclusao duas vezes. Com 6 ativos e 4 cancelados o card
-                        dizia "Total 6 · 2 concluidos · 4 cancelados", e o
-                        Ticket Medio (que divide a receita pelos 6 ativos)
-                        parecia estar contando os cancelados. */}
+                        no backend: num_pedidos ja e "quantos NAO estao
+                        cancelados". Este card mostra num_pedidos direto, e o
+                        rotulo diz isso — antes ele chamava esse numero de
+                        "Total de Pedidos" e ainda subtraia os cancelados dele
+                        para achar os "concluidos", contando a exclusao duas
+                        vezes. Com 6 validos e 4 cancelados dizia "Total 6 ·
+                        2 concluidos", e o Ticket Medio (receita / 6 validos)
+                        parecia estar contando os cancelados no divisor. */}
                     <KpiCard
-                      label="Total de Pedidos"
-                      value={String((kpis?.num_pedidos ?? 0) + (kpis?.num_cancelamentos ?? 0))}
-                      sub={`${kpis?.num_pedidos ?? 0} válido${(kpis?.num_pedidos ?? 0) !== 1 ? 's' : ''} · ${kpis?.num_cancelamentos ?? 0} cancelado${(kpis?.num_cancelamentos ?? 0) !== 1 ? 's' : ''}`}
+                      label="Pedidos Válidos"
+                      value={String(kpis?.num_pedidos ?? 0)}
+                      sub={`${kpis?.num_cancelamentos ?? 0} cancelado${(kpis?.num_cancelamentos ?? 0) !== 1 ? 's' : ''} · ${(kpis?.num_pedidos ?? 0) + (kpis?.num_cancelamentos ?? 0)} no total`}
                       accent="text-[#2F6BFF]"
                       borderAccent="border-l-4 border-l-green-500"
                     />
@@ -697,7 +698,7 @@ export default function Dashboard() {
                     <KpiCard
                       label="Ticket Médio"
                       value={BRL(kpis?.ticket_venda ?? 0)}
-                      sub={`Por pedido válido (${kpis?.num_pedidos ?? 0})`}
+                      sub="Por pedido válido"
                       accent="text-[#2F6BFF]"
                       borderAccent="border-l-4 border-l-blue-500"
                     />
