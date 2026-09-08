@@ -1,4 +1,4 @@
-from pydantic import BaseModel, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, field_validator, model_validator
 from datetime import date, datetime
 from decimal import Decimal
 from uuid import UUID
@@ -187,6 +187,25 @@ class StatusHistoryOut(BaseModel):
         from_attributes = True
 
 
+class TermosCotacaoOut(BaseModel):
+    """Condicoes comerciais herdadas da cotacao que gerou o pedido.
+
+    Nao sao campos do pedido: vivem na cotacao. Viajam junto na resposta porque
+    o documento impresso da OS mostra as mesmas condicoes que o cliente viu no
+    timbrado da cotacao ao fechar — antes so a cotacao as trazia, e a OS chegava
+    ao cliente sem garantia nem previsao de entrega.
+
+    None no pedido criado do zero, e tambem quando a cotacao nao tem nenhum
+    termo preenchido: o bloco simplesmente nao sai no papel.
+    """
+    model_config = ConfigDict(from_attributes=True)
+
+    previsao_entrega: Optional[date] = None
+    forma_pagamento: Optional[str] = None
+    detalhes_pagamento: Optional[str] = None
+    garantia: Optional[str] = None
+
+
 class PedidoResponse(BaseModel):
     id: UUID
     id_loja: UUID
@@ -195,6 +214,7 @@ class PedidoResponse(BaseModel):
     # Indice da cotacao que gerou este pedido; None quando ele foi criado do
     # zero. Vai para o cabecalho do documento impresso.
     numero_cotacao: Optional[int] = None
+    termos_cotacao: Optional[TermosCotacaoOut] = None
     contato_cliente: Optional[str] = None
     numero_os: str
     numero_nf: Optional[str]
@@ -238,6 +258,7 @@ class PedidoListItemResponse(BaseModel):
     id: UUID
     id_cotacao: Optional[UUID] = None
     numero_cotacao: Optional[int] = None
+    termos_cotacao: Optional[TermosCotacaoOut] = None
     contato_cliente: Optional[str] = None
     numero_os: str
     data_pedido: date

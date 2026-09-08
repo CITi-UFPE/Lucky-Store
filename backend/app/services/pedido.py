@@ -98,6 +98,34 @@ def _numero_cotacao(pedido: Pedido) -> Optional[int]:
     return pedido.cotacao.numero if pedido.cotacao else None
 
 
+def _termos_da_cotacao(pedido: Pedido) -> Optional[dict]:
+    """Condicoes comerciais combinadas na cotacao que gerou o pedido.
+
+    Elas vivem SO na cotacao — o pedido nao tem previsao de entrega, detalhes de
+    pagamento nem garantia. O documento impresso da OS precisa delas porque e o
+    papel que vai ao cliente, e ate agora so o timbrado da cotacao as mostrava:
+    o cliente fechava vendo garantia e prazo, e a OS chegava sem nenhum dos dois.
+
+    Vem pela mesma porta do numero_cotacao, e pelo mesmo motivo — o
+    relacionamento ja e carregado junto (joinedload), entao imprimir uma folha
+    continua sendo uma requisicao, e a listagem nao vira uma por linha.
+
+    Pedido criado do zero devolve None, e o bloco simplesmente nao sai no papel.
+    """
+    c = pedido.cotacao
+    if c is None:
+        return None
+    termos = {
+        "previsao_entrega": c.previsao_entrega,
+        "forma_pagamento": c.forma_pagamento,
+        "detalhes_pagamento": c.detalhes_pagamento,
+        "garantia": c.garantia,
+    }
+    # Cotacao sem nenhum termo preenchido nao vira um objeto vazio na resposta:
+    # a tela so precisa saber "tem bloco" ou "nao tem".
+    return termos if any(v is not None and str(v).strip() != "" for v in termos.values()) else None
+
+
 def _economia(pedido: Pedido) -> Optional[Decimal]:
     if pedido.valor_venda is None or pedido.custo is None:
         return None
@@ -241,6 +269,7 @@ class PedidoService:
         db.refresh(pedido)
         pedido.economia = _economia(pedido)
         pedido.numero_cotacao = _numero_cotacao(pedido)
+        pedido.termos_cotacao = _termos_da_cotacao(pedido)
         pedido.idempotent_replay = False
         return pedido
 
@@ -298,6 +327,7 @@ class PedidoService:
         for p in items:
             p.economia = _economia(p)
             p.numero_cotacao = _numero_cotacao(p)
+            p.termos_cotacao = _termos_da_cotacao(p)
 
         return items, total, math.ceil(total / limit) if total else 0
 
@@ -311,6 +341,7 @@ class PedidoService:
             raise NotFoundException(f"Pedido {pedido_id} não encontrado")
         pedido.economia = _economia(pedido)
         pedido.numero_cotacao = _numero_cotacao(pedido)
+        pedido.termos_cotacao = _termos_da_cotacao(pedido)
         return pedido
 
     @staticmethod

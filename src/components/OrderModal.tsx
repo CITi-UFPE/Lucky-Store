@@ -22,6 +22,7 @@ import {
   ITEM_STATUS_COLORS, ORDER_STATUS_COLORS, ORDER_STATUS_LABELS,
   PAYMENT_METHODS, PAYMENT_METHOD_LABELS,
   calcFinalCost, calcPartialCost, calcDirectSupplyCost, calcProfit, calcFreightTotal,
+  calcItemFinalValue,
 } from '@/store/OrderStore';
 import type { OrderPrefill } from '@/components/AddOrderChooser';
 import { StatusTimeline } from '@/components/StatusTimeline';
@@ -191,6 +192,14 @@ const ORDER_PRINT_CSS = `
     color:#15807c;display:flex;align-items:center;gap:9px}
   .op-sec>h2::after{content:"";flex:1;height:1px;background:#d9e1ea}
 
+  /* Condicoes herdadas da cotacao. Mesmo desenho do .qp-terms do timbrado da
+     cotacao — e o mesmo bloco, e o cliente reconhece de um papel para o outro. */
+  .op-terms{border:1px solid #d9e1ea;border-radius:8px;padding:8px 12px;background:#fafcff;
+    display:flex;flex-direction:column;gap:4px;break-inside:avoid}
+  .op-terms>div{font-size:11px}
+  .op-terms .k{color:#15807c;font-weight:700}
+  .op-terms .v{color:#1f2d3d}
+
   .op-tbl{width:100%;border-collapse:collapse;font-size:11px;table-layout:fixed}
   .op-tbl thead{display:table-header-group}
   .op-tbl th{text-align:left;font-size:9px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;
@@ -198,6 +207,9 @@ const ORDER_PRINT_CSS = `
   .op-tbl td{padding:4.5px 6px;border-bottom:1px solid #d9e1ea;vertical-align:top;overflow-wrap:anywhere}
   .op-tbl tbody tr{break-inside:avoid}
   .op-tbl .r{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+  /* Numero nao quebra; TITULO quebra. Sem isto, "Valor de compra" e
+     "Valor de venda" estouravam a coluna e um invadia o outro. */
+  .op-tbl th.r{white-space:normal}
   .op-tbl .c{text-align:center}
   .op-tbl tfoot td{border-bottom:none;padding-top:5px;font-weight:600}
   .op-idx{font-family:'IBM Plex Mono',ui-monospace,monospace;color:#93a3b6}
@@ -252,14 +264,6 @@ const OP_LOJA: Record<string, { logo: string; cnpj: string; rodape: string }> = 
   },
 };
 
-/** ItemStatus ('To Buy' | 'Bought' | 'In Stock') nao tem mapa de rotulo no
- *  OrderStore — o Select da tela mostra o valor cru. No papel vai traduzido. */
-const OP_ITEM_STATUS: Record<ItemStatus, string> = {
-  'To Buy': 'A comprar',
-  'Bought': 'Comprado',
-  'In Stock': 'Em estoque',
-};
-
 /** Ordem de servico em papel: documento, nao captura da tela. */
 function OrderPrintTemplate({ form, valores }: {
   /** O estado do modal e Partial<Order> — todo campo pode estar vazio enquanto
@@ -278,6 +282,31 @@ function OrderPrintTemplate({ form, valores }: {
   // 'T12:00:00' evita que o fuso jogue a data para o dia anterior — mesmo
   // truque que o modal ja usa nos campos de data.
   const dt = (v?: string) => (v ? format(new Date(v + 'T12:00:00'), 'dd/MM/yyyy') : '—');
+
+  // Condicoes combinadas na cotacao que gerou o pedido. Nao sao campos do
+  // pedido: vem da cotacao junto com o numero dela. Sao as MESMAS quatro linhas
+  // do timbrado da cotacao — o cliente fechava vendo garantia e previsao de
+  // entrega, e a OS chegava a ele sem nenhuma das duas.
+  //
+  // Cada uma so entra se estiver preenchida, igual a cotacao faz: linha vazia
+  // com travessao em documento que vai ao cliente e pior do que linha ausente.
+  // Pedido criado do zero nao tem cotacao de origem, e o bloco inteiro some.
+  const rotuloForma = (m?: string) =>
+    (m ? (PAYMENT_METHOD_LABELS[m as PaymentMethod] ?? m) : '');
+  const formasDePagamento = form.paymentMethod
+    ? rotuloForma(form.paymentMethod)
+    : (form.paymentMethods || []).map(rotuloForma).filter(Boolean).join(', ');
+
+  const t = form.quoteTerms;
+  const termos: [string, string][] = ([
+    t?.deliveryForecast ? ['Previsão de Entrega', dt(t.deliveryForecast)] : null,
+    t?.paymentMethod
+      ? ['Forma de Pagamento',
+         PAYMENT_METHOD_LABELS[t.paymentMethod as PaymentMethod] ?? t.paymentMethod]
+      : null,
+    t?.paymentDetails?.trim() ? ['Detalhes do Pagamento', t.paymentDetails.trim()] : null,
+    t?.warranty?.trim() ? ['Garantia', t.warranty.trim()] : null,
+  ] as ([string, string] | null)[]).filter((x): x is [string, string] => x !== null);
 
   return (
     <div className="op-doc">
@@ -312,49 +341,59 @@ function OrderPrintTemplate({ form, valores }: {
         <div><span className="k">Faturamento direto</span><span className="v">{form.directBilling ? 'Sim' : 'Não'}</span></div>
       </div>
 
+      {termos.length > 0 && (
+        <div className="op-sec">
+          <h2>Condições da cotação{form.sourceQuoteNumber != null ? ` nº ${form.sourceQuoteNumber}` : ''}</h2>
+          <section className="op-terms">
+            {termos.map(([k, v]) => (
+              <div key={k}><span className="k">{k}</span> - <span className="v">{v}</span></div>
+            ))}
+          </section>
+        </div>
+      )}
+
       <div className="op-sec">
         <h2>Itens do pedido</h2>
         <table className="op-tbl">
           <colgroup>
-            <col style={{ width: '6%' }} /><col style={{ width: '5%' }} /><col style={{ width: '32%' }} />
-            <col style={{ width: '6%' }} /><col style={{ width: '14%' }} /><col style={{ width: '13%' }} />
-            <col style={{ width: '12%' }} /><col style={{ width: '12%' }} />
+            <col style={{ width: '5%' }} /><col style={{ width: '34%' }} /><col style={{ width: '7%' }} />
+            <col style={{ width: '20%' }} /><col style={{ width: '17%' }} /><col style={{ width: '17%' }} />
           </colgroup>
           <thead>
             <tr>
-              <th className="c">Conf.</th><th>#</th><th>Produto</th><th className="c">Qtd</th>
-              <th>Status</th><th>Fornecedor</th><th className="r">Custo proj.</th><th className="r">Val. compra</th>
+              <th>#</th><th>Produto</th><th className="c">Qtd</th>
+              <th>Fornecedor</th><th className="r">Valor de compra</th><th className="r">Valor de venda</th>
             </tr>
           </thead>
           <tbody>
             {itens.length === 0 && (
-              <tr><td colSpan={8} className="c">Nenhum item</td></tr>
+              <tr><td colSpan={6} className="c">Nenhum item</td></tr>
             )}
             {itens.map((item, idx) => {
               const subs = item.subPurchases || [];
+              // Fornecedor mora nas sub-compras: um item pode vir de mais de
+              // uma. Com uma so, o nome cabe na propria linha do item; com
+              // varias, cada sub-compra ja mostra o seu logo abaixo.
+              const fornecedor = subs.length === 1 ? (subs[0].supplier || '—')
+                : subs.length === 0 ? '—' : '';
               return (
                 <Fragment key={item.id}>
                   <tr>
-                    <td className="c"><span className="op-box" /></td>
                     <td className="op-idx">{String(idx + 1).padStart(2, '0')}</td>
                     <td>{item.name || '—'}</td>
                     <td className="c">{item.quantity || 0}</td>
-                    <td>{OP_ITEM_STATUS[item.status] ?? item.status}</td>
-                    {/* Fornecedor mora nas sub-compras: um item pode vir de mais de uma.
-                        Sem sub-compra, nao ha fornecedor a mostrar. */}
-                    <td>{subs.length === 0 ? '—' : ''}</td>
+                    <td>{fornecedor}</td>
+                    <td className="r">{calcItemFinalValue(item) ? toBRL(calcItemFinalValue(item)) : '—'}</td>
                     <td className="r">{toBRL((item.projectedValue || 0) * (item.quantity || 0))}</td>
-                    <td className="r">{item.purchaseValue ? toBRL(item.purchaseValue) : '—'}</td>
                   </tr>
-                  {subs.map((sc, k) => (
+                  {subs.length > 1 && subs.map((sc, k) => (
                     <tr key={sc.id} className={`op-sub${k === subs.length - 1 ? ' op-sub-fim' : ''}`}>
-                      <td /><td />
+                      <td />
                       <td className="op-de">↳ {sc.buyer ? `${sc.buyer} · ` : ''}{dt(sc.purchaseDate)}</td>
                       <td className="c">{sc.selectedQuantity || 0}</td>
-                      <td>{OP_ITEM_STATUS[sc.status] ?? sc.status}</td>
                       <td>{sc.supplier || '—'}</td>
-                      <td className="r" />
                       <td className="r">{sc.purchaseValue ? toBRL(sc.purchaseValue) : '—'}</td>
+                      <td className="r" />
                     </tr>
                   ))}
                 </Fragment>
@@ -363,12 +402,13 @@ function OrderPrintTemplate({ form, valores }: {
           </tbody>
           <tfoot>
             <tr>
-              {/* Dois numeros, um por coluna: projetado x efetivamente comprado.
-                  Rotular de "Custo final do produto" confundia — parecia que os
-                  dois valores eram a mesma coisa. */}
-              <td colSpan={6} className="r">Totais</td>
-              <td className="r">{toBRL(valores.custoInicial)}</td>
-              <td className="r">{toBRL(valores.custoFinal)}</td>
+              {/* Um numero por coluna de dinheiro: o que foi pago aos
+                  fornecedores e o que foi cobrado do cliente. Somados a partir
+                  das MESMAS linhas impressas acima — o total do rodape do
+                  documento tem que fechar com o que esta na folha. */}
+              <td colSpan={4} className="r">Totais</td>
+              <td className="r">{toBRL(itens.reduce((s, i) => s + calcItemFinalValue(i), 0))}</td>
+              <td className="r">{toBRL(itens.reduce((s, i) => s + (i.projectedValue || 0) * (i.quantity || 0), 0))}</td>
             </tr>
           </tfoot>
         </table>
@@ -431,7 +471,9 @@ function OrderPrintTemplate({ form, valores }: {
       <div className="op-sec">
         <h2>Pagamento e observações</h2>
         <div className="op-meta">
-          <div><span className="k">Forma</span><span className="v">{form.paymentMethod || form.paymentMethods?.join(', ') || '—'}</span></div>
+          {/* Saia cru: "Credit Card" no papel que vai ao cliente. O mapa de
+              rotulos ja existia e era usado so na tela. */}
+          <div><span className="k">Forma</span><span className="v">{formasDePagamento || '—'}</span></div>
           <div><span className="k">Parcelas</span><span className="v">{form.paymentInstallments || form.installments || 1}</span></div>
           <div><span className="k">Data pagamento</span><span className="v">{dt(form.paymentDate)}</span></div>
           <div><span className="k">Multa · Juros</span><span className="v">{toBRL(form.penaltyValue || 0)} · {toBRL(form.interestValue || 0)}</span></div>

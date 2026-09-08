@@ -22,11 +22,24 @@ export interface FreteApiItem {
   pago?: boolean
 }
 
+/** Condicoes comerciais herdadas da cotacao que gerou o pedido.
+ *  Nao sao campos do pedido — vivem na cotacao e viajam junto para que o
+ *  documento da OS mostre o mesmo que o cliente viu ao fechar. */
+export interface TermosCotacao {
+  previsao_entrega: string | null
+  forma_pagamento: string | null
+  detalhes_pagamento: string | null
+  garantia: string | null
+}
+
 export interface PedidoListItem {
   id: string
   id_cotacao: string | null
   /** Índice da cotação que gerou o pedido; null quando ele foi criado do zero. */
   numero_cotacao: number | null
+  /** null quando o pedido nasceu do zero, ou quando a cotacao nao tem termo
+   *  nenhum preenchido — nos dois casos o bloco nao sai no papel. */
+  termos_cotacao: TermosCotacao | null
   /** Pessoa de contato dentro do cliente. A empresa vem em nome_cliente. */
   contato_cliente: string | null
   numero_os: string

@@ -27,6 +27,10 @@ def _fake_pedido(pedido_id=None):
     p.id_cliente = uuid.uuid4()
     p.id_cotacao = None
     p.numero_cotacao = None
+    # Termos herdados da cotacao de origem. Mesmo motivo do contato
+    # abaixo: sem definir, o MagicMock devolve outro MagicMock e o
+    # Pydantic recusa a resposta inteira.
+    p.termos_cotacao = None
     # A empresa fica em nome_cliente/clientes.nome; este e o contato, que nasce
     # vazio nos pedidos que ja existiam. Sem definir, o MagicMock devolve outro
     # MagicMock e o Pydantic recusa a resposta.

@@ -174,6 +174,17 @@ export interface Order {
    *  Vai para o cabeçalho do documento impresso — é o que liga a OS de volta
    *  à cotação que o cliente aprovou. */
   sourceQuoteNumber?: number | null;
+  /** Condições comerciais combinadas na cotação de origem — previsão de
+   *  entrega, forma e detalhes de pagamento, garantia. Não são campos do
+   *  pedido: vêm da cotação junto com o número dela, para que o documento da
+   *  OS mostre ao cliente o mesmo que ele viu ao fechar. Ausente no pedido
+   *  criado do zero, e aí o bloco não sai no papel. */
+  quoteTerms?: {
+    deliveryForecast?: string | null;
+    paymentMethod?: string | null;
+    paymentDetails?: string | null;
+    warranty?: string | null;
+  } | null;
   /** Creation timestamp (ms) — used for default newest-first sort */
   createdAt: number;
   orderDate: string;
