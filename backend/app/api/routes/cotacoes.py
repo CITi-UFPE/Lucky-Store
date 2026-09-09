@@ -61,7 +61,8 @@ def list_quotes(
     cliente: Optional[str] = Query(default=None, description="Busca parcial por nome"),
     data_inicio: Optional[str] = Query(default=None, description="YYYY-MM-DD"),
     data_fim: Optional[str] = Query(default=None, description="YYYY-MM-DD"),
-    sort_by: str = Query(default="data_cotacao"),
+    # Pelo indice: ele vem de uma sequence, entao o maior e o mais recente.
+    sort_by: str = Query(default="numero"),
     sort_dir: str = Query(default="desc", pattern="^(asc|desc)$"),
     eligible_for_order: Optional[bool] = Query(default=None, description="Se true, retorna apenas cotações fechadas ou caídas"),
     numero_requisicao: Optional[str] = Query(default=None),

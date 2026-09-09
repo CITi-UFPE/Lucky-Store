@@ -462,7 +462,10 @@ export default function Sales() {
   const [quoteRange, setQuoteRange] = useState<DateRange>({});
   const [quoteStatusFilter, setQuoteStatusFilter] = useState<string>('all');
   const [quoteApiFilters, setQuoteApiFilters] = useState<CotacaoFilters>({
-    page: 1, limit: 20, sort_by: 'data_cotacao', sort_dir: 'desc',
+    // Pelo índice, não pela data: o índice vem de uma sequence, então o
+    // maior é o mais recente. data_cotacao é uma data digitada, várias
+    // cotações caem no mesmo dia e a lista saía fora de ordem.
+    page: 1, limit: 20, sort_by: 'numero', sort_dir: 'desc',
   });
   const { data: quotesData, isLoading: quotesLoading, isError: quotesError, refetch: quotesRefetch } =
     useQuotesAPI(quoteApiFilters);

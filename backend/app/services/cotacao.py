@@ -4,7 +4,7 @@ from decimal import Decimal
 from typing import Optional
 from uuid import UUID
 from sqlalchemy.orm import Session
-from sqlalchemy import asc, desc, text, func, or_, cast, String
+from sqlalchemy import asc, desc, nullslast, text, func, or_, cast, String
 from sqlalchemy.exc import IntegrityError
 
 from app.models.cotacao import Cotacao
@@ -137,6 +137,15 @@ def _hydrate_cotacao(db: Session, cotacao: Cotacao) -> Cotacao:
     return cotacao
 
 
+# Sem lista fechada, `sort_by` vinha da query string direto para o getattr:
+# qualquer atributo do model servia de ordenacao, inclusive os que nao sao
+# coluna (metadata, registry) — que estouram na hora de montar o SQL.
+_ORDENAVEIS = {
+    "data_cotacao", "numero", "cliente", "b2b_company", "valor_total",
+    "created_at", "updated_at", "data_envio", "data_validade",
+}
+
+
 class CotacaoService:
 
     @staticmethod
@@ -247,7 +256,7 @@ class CotacaoService:
         cliente: Optional[str] = None,
         data_inicio: Optional[str] = None,
         data_fim: Optional[str] = None,
-        sort_by: str = "data_cotacao",
+        sort_by: str = "numero",
         sort_dir: str = "desc",
         eligible_for_order: Optional[bool] = None,
         numero_requisicao: Optional[str] = None,
@@ -273,8 +282,27 @@ class CotacaoService:
         if eligible_for_order:
             q = q.filter(Cotacao.status_fechada == True, Cotacao.status_caida != True)
 
-        sort_col = getattr(Cotacao, sort_by, Cotacao.data_cotacao)
-        q = q.order_by(desc(sort_col) if sort_dir == "desc" else asc(sort_col))
+        # A ordem e pelo INDICE (numero), nao pela data. O indice vem de uma
+        # sequence, entao o maior e sempre o mais recente — que e como a tela
+        # apresenta a lista. data_cotacao nao serve para isso: e uma DATA
+        # digitada, varias cotacoes caem no mesmo dia e ainda pode ser
+        # retroagida. Ordenando por ela, os empates saiam na ordem que o
+        # Postgres quisesse, e a tela mostrava 79, 80, 78, 81, 77...
+        #
+        # O desempate por `id` fecha a ordem. Nao e preciosismo: com
+        # OFFSET/LIMIT, ordem instavel faz a mesma cotacao aparecer em duas
+        # paginas e outra em nenhuma, sem erro nenhum.
+        #
+        # nullslast porque as cotacoes anteriores a sequence nao tem numero, e
+        # em DESC o Postgres joga NULL para o topo — elas iriam para a frente
+        # das numeradas.
+        sort_col = getattr(Cotacao, sort_by if sort_by in _ORDENAVEIS else "numero")
+        direcao = desc if sort_dir == "desc" else asc
+        q = q.order_by(
+            nullslast(direcao(sort_col)),
+            nullslast(direcao(Cotacao.numero)),
+            direcao(Cotacao.id),
+        )
 
         total = q.count()
         items = q.offset((page - 1) * limit).limit(limit).all()

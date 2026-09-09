@@ -5,7 +5,7 @@ from decimal import Decimal
 from typing import Optional
 from uuid import UUID, uuid4
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import asc, desc, text
+from sqlalchemy import asc, desc, nullslast, text
 from sqlalchemy.exc import IntegrityError
 from app.models.pedido import Pedido, PedidoFormaPagamento, CustoPedido, STATUS_CANCELADO
 from app.models.cliente import Cliente
@@ -305,6 +305,7 @@ class PedidoService:
 
         _SORT_WHITELIST = {"data_pedido", "data_entrega", "status", "numero_os", "created_at", "updated_at"}
         sort_col = getattr(Pedido, sort_by if sort_by in _SORT_WHITELIST else "data_pedido")
+        direcao = desc if sort_dir == "desc" else asc
         items = (
             db.query(Pedido)
             .options(
@@ -318,7 +319,12 @@ class PedidoService:
                 joinedload(Pedido.cotacao),
             )
             .filter(*base_filters)
-            .order_by(desc(sort_col) if sort_dir == "desc" else asc(sort_col))
+            # Mesmo problema da cotacao: data_pedido e uma DATA e varios pedidos
+            # caem no mesmo dia. Sem desempate a ordem dos empates e a que o
+            # Postgres quiser, e com OFFSET/LIMIT isso faz pedido repetir numa
+            # pagina e sumir de outra. created_at desempata pela criacao; id
+            # fecha, porque e unico e torna a ordem total.
+            .order_by(direcao(sort_col), direcao(Pedido.created_at), direcao(Pedido.id))
             .offset((page - 1) * limit)
             .limit(limit)
             .all()
