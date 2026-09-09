@@ -5,7 +5,7 @@ from decimal import Decimal
 from typing import Optional
 from uuid import UUID, uuid4
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import asc, desc, nullslast, text
+from sqlalchemy import Integer, asc, cast, desc, func, nullslast, text
 from sqlalchemy.exc import IntegrityError
 from app.models.pedido import Pedido, PedidoFormaPagamento, CustoPedido, STATUS_CANCELADO
 from app.models.cliente import Cliente
@@ -51,6 +51,21 @@ def _pedido_da_tentativa(db: Session, current_user_id: UUID,
     if pedido is not None:
         pedido.economia = _economia(pedido)
     return pedido
+
+
+# numero_os e VARCHAR: "OS-013". Ordenar a coluna como texto e ordenacao
+# alfabetica, nao numerica — e por isso a tela mostrava OS-013, OS-011, OS-012.
+# Alfabeticamente ela tambem quebra na virada da casa: "OS-1000" < "OS-999",
+# porque o quarto caractere '0' vem antes de '9'. O zfill(3) de hoje adia isso
+# ate a OS-999 e nao resolve.
+#
+# substring(... from '\d+') pega o primeiro grupo de digitos, entao "OS-013"
+# vira 13 e a ordem passa a ser a numerica. Pegar o PRIMEIRO grupo, e nao todos
+# os digitos, tambem protege do numero provisorio TMP-<uuid>, que so existe
+# dentro da transacao mas cujo apanhado de digitos estouraria o inteiro.
+_NUMERO_OS_NUMERICO = cast(
+    func.nullif(func.substring(Pedido.numero_os, r"\d+"), ""), Integer
+)
 
 
 def _numero_provisorio(pedido_id: UUID) -> str:
@@ -283,7 +298,7 @@ class PedidoService:
         id_vendedor: Optional[UUID] = None,
         data_inicio: Optional[str] = None,
         data_fim: Optional[str] = None,
-        sort_by: str = "data_pedido",
+        sort_by: str = "numero_os",
         sort_dir: str = "desc",
         numero_os: Optional[str] = None,
     ):
@@ -304,8 +319,11 @@ class PedidoService:
         total = db.query(Pedido).filter(*base_filters).count()
 
         _SORT_WHITELIST = {"data_pedido", "data_entrega", "status", "numero_os", "created_at", "updated_at"}
-        sort_col = getattr(Pedido, sort_by if sort_by in _SORT_WHITELIST else "data_pedido")
+        sort_col = getattr(Pedido, sort_by if sort_by in _SORT_WHITELIST else "numero_os")
         direcao = desc if sort_dir == "desc" else asc
+        # Pela OS o criterio e o numero, nao o texto da coluna.
+        if sort_col is Pedido.numero_os:
+            sort_col = _NUMERO_OS_NUMERICO
         items = (
             db.query(Pedido)
             .options(
@@ -319,12 +337,18 @@ class PedidoService:
                 joinedload(Pedido.cotacao),
             )
             .filter(*base_filters)
-            # Mesmo problema da cotacao: data_pedido e uma DATA e varios pedidos
-            # caem no mesmo dia. Sem desempate a ordem dos empates e a que o
-            # Postgres quiser, e com OFFSET/LIMIT isso faz pedido repetir numa
-            # pagina e sumir de outra. created_at desempata pela criacao; id
-            # fecha, porque e unico e torna a ordem total.
-            .order_by(direcao(sort_col), direcao(Pedido.created_at), direcao(Pedido.id))
+            # O desempate vale para qualquer criterio: data_pedido e uma DATA e
+            # varios pedidos caem no mesmo dia; status e data_entrega repetem
+            # ainda mais. Sem desempate a ordem dos empates e a que o Postgres
+            # quiser, e com OFFSET/LIMIT isso faz pedido repetir numa pagina e
+            # sumir de outra, sem erro nenhum. O numero da OS desempata pela
+            # ordem de criacao — e o mesmo criterio que a cotacao usa com o
+            # indice — e o id fecha, porque e unico e torna a ordem total.
+            .order_by(
+                nullslast(direcao(sort_col)),
+                nullslast(direcao(_NUMERO_OS_NUMERICO)),
+                direcao(Pedido.id),
+            )
             .offset((page - 1) * limit)
             .limit(limit)
             .all()

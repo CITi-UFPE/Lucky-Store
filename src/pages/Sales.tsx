@@ -394,7 +394,10 @@ export default function Sales() {
   const [orderView, setOrderView] = useState<'all' | 'open' | 'rma'>('all');
   const [orderAlertsOnly, setOrderAlertsOnly] = useState(false);
   const [filters, setFilters] = useState<OrderFilters>({
-    page: 1, limit: 20, sort_by: 'data_pedido', sort_dir: 'desc',
+    // Pelo número da OS, não pela data: o número vem de uma sequence,
+    // então o maior é o mais recente. data_pedido é uma data digitada e
+    // vários pedidos caem no mesmo dia — a lista saía fora de ordem.
+    page: 1, limit: 20, sort_by: 'numero_os', sort_dir: 'desc',
   });
   const { data, isLoading, isError, refetch } = useOrdersQuery(filters);
 

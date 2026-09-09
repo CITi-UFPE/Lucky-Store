@@ -104,7 +104,9 @@ def list_pedidos(
     id_vendedor: Optional[UUID] = Query(default=None),
     data_inicio: Optional[str] = Query(default=None, description="YYYY-MM-DD"),
     data_fim: Optional[str] = Query(default=None, description="YYYY-MM-DD"),
-    sort_by: str = Query(default="data_pedido"),
+    # Pelo numero da OS: ele vem de uma sequence, entao o maior e o mais
+    # recente. Mesmo criterio do indice na cotacao.
+    sort_by: str = Query(default="numero_os"),
     sort_dir: str = Query(default="desc", pattern="^(asc|desc)$"),
     numero_os: Optional[str] = Query(default=None),
     db: Session = Depends(get_db),

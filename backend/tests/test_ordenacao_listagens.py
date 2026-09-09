@@ -14,15 +14,21 @@ diferente fazem a mesma cotacao aparecer na pagina 1 e na 2, enquanto outra nao
 aparece em nenhuma — sem erro, sem aviso. Por isso o desempate desce ate `id`,
 que e unico: dai a ordem e total e a paginacao passa a ser reproduzivel.
 
-O mesmo valia para pedidos, ordenados por data_pedido sem desempate.
+O mesmo valia para pedidos — com um agravante proprio. Ali o "indice" e o
+numero da OS, que e VARCHAR: "OS-013". Ordenar a coluna e ordenacao ALFABETICA,
+nao numerica, e por isso a tela mostrava OS-013, OS-011, OS-012. Alfabeticamente
+ela ainda quebra na virada de casa — "OS-1000" < "OS-999", porque '0' vem antes
+de '9' —, e o zfill(3) de hoje so adia isso ate a OS-999.
 """
 import inspect
 import re
 from pathlib import Path
 
+from sqlalchemy.dialects import postgresql
+
 from app.services import cotacao as servico_cotacao
 from app.services.cotacao import CotacaoService, _ORDENAVEIS
-from app.services.pedido import PedidoService
+from app.services.pedido import PedidoService, _NUMERO_OS_NUMERICO
 
 BACKEND = Path(__file__).resolve().parents[1]
 ROTA_COTACOES = BACKEND / "app" / "api" / "routes" / "cotacoes.py"
@@ -84,10 +90,41 @@ class TestCotacao:
 
 class TestPedido:
 
-    def test_desempata_por_criacao_e_id(self):
-        """data_pedido tambem e uma DATA: varios pedidos no mesmo dia empatam."""
+    def test_o_padrao_e_o_numero_da_os(self):
+        assinatura = inspect.signature(PedidoService.list)
+        assert assinatura.parameters["sort_by"].default == "numero_os"
+        assert assinatura.parameters["sort_dir"].default == "desc"
+
+    def test_a_rota_pede_o_mesmo_padrao(self):
+        fonte = (BACKEND / "app" / "api" / "routes" / "pedidos.py").read_text(encoding="utf-8")
+        assert 'sort_by: str = Query(default="numero_os")' in fonte
+
+    def test_a_tela_tambem(self):
+        fonte = TELA.read_text(encoding="utf-8")
+        assert "sort_by: 'numero_os'" in fonte
+        assert "sort_by: 'data_pedido', sort_dir: 'desc'," not in fonte
+
+    def test_a_os_ordena_pelo_numero_e_nao_pelo_texto(self):
+        """A coluna e VARCHAR. Como texto, "OS-013" < "OS-11" e "OS-1000" <
+        "OS-999" — a ordem sai alfabetica e quebra na virada de casa."""
+        sql = str(_NUMERO_OS_NUMERICO.compile(
+            dialect=postgresql.dialect(), compile_kwargs={"literal_binds": True}))
+        assert "substring" in sql.lower()
+        assert "INTEGER" in sql.upper()
+
+    def test_pega_o_primeiro_grupo_de_digitos(self):
+        """E nao todos os digitos: o numero provisorio TMP-<uuid> so existe
+        dentro da transacao, mas o apanhado dos digitos dele estouraria o
+        inteiro se algum dia escapasse."""
+        sql = str(_NUMERO_OS_NUMERICO.compile(
+            dialect=postgresql.dialect(), compile_kwargs={"literal_binds": True}))
+        assert r"\d+" in sql or r"\d" in sql
+
+    def test_desempata_pela_os_e_pelo_id(self):
+        """data_pedido, data_entrega e status empatam muito. O desempate e o
+        mesmo criterio da cotacao: o numero, e depois o id."""
         corpo = _corpo(PedidoService.list)
-        assert "direcao(Pedido.created_at)" in corpo
+        assert "nullslast(direcao(_NUMERO_OS_NUMERICO))" in corpo
         assert "direcao(Pedido.id)" in corpo
 
     def test_nao_ordena_mais_por_uma_coluna_so(self):
