@@ -117,7 +117,12 @@ const QUOTE_MODAL_CSS = `
 const QUOTE_PRINT_CSS = `
   #qm-print-root{display:none}
   @media print{
-    @page{size:A4;margin:16mm 0 0 0}
+    /* Medido: com o logo da BTech (61,6mm) o documento fechava em 281,7mm
+       contra 281mm uteis, e a ultima linha do rodape — so ela — caia para uma
+       segunda pagina. Sobrava 0,7mm de folga, entao qualquer variacao estourava:
+       imprimir com "cabecalhos e rodapes" ligado no Chrome ja bastava.
+       10mm no topo devolvem 6mm dessa folga. */
+    @page{size:A4;margin:10mm 0 0 0}
     html,body{background:#fff !important}
     body>*{display:none !important}
     body>#qm-print-root{display:block !important}
@@ -153,7 +158,11 @@ const QUOTE_PRINT_CSS = `
     border-radius:0 0 6px 6px}
 
   /* Rodapé (texto + imagem, quando houver) */
-  .qp-footer{text-align:center;padding:6mm 14mm 8mm}
+  /* break-inside:avoid para o rodape nunca ser PARTIDO. Era o que
+     acontecia: o cartao de contato ficava na pagina 1 e a linha do CNPJ ia
+     sozinha para a 2. Se um dia a cotacao for longa demais, o rodape inteiro
+     vai junto para a ultima pagina, que e o certo. */
+  .qp-footer{text-align:center;padding:3mm 14mm 4mm;break-inside:avoid}
   .qp-footer-img{display:block;margin:0 auto;max-width:100%;width:540px;max-height:38mm;height:auto}
   .qp-footer-text{font-size:9.5px;color:#5b6b82;line-height:1.55;margin:8px auto 0;max-width:94%}
 
