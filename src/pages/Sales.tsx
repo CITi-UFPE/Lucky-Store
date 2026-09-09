@@ -105,6 +105,9 @@ function cotacaoToQuote(c: CotacaoResponse, vendedores: VendedorItem[]): Quote {
     directBilling: c.is_direct_billing || hasDirect,
     supplier: cleanStr(c.fornecedor),
     seller: (vendedores.find(v => v.id === c.id_vendedor)?.nome ?? '') as any,
+    // O id, e nao so o nome: e ele que identifica o cadastro certo do vendedor
+    // DENTRO da loja da cotacao, para o cartao de contato do timbrado.
+    sellerId: c.id_vendedor,
     value: parseFloat(c.valor_total ?? '0') || 0,
     items: allItems.filter(i => !i.is_direct_supply).map(i => ({
       id: i.id,

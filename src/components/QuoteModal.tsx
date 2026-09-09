@@ -128,10 +128,13 @@ const QUOTE_PRINT_CSS = `
   /* Onda decorativa — fixa, repetida no rodapé de toda página */
   .qp-wave{position:fixed;left:0;right:0;bottom:0;width:100%;height:36%;z-index:0;pointer-events:none}
 
-  /* Tabela de página: <tfoot> repete o rodapé no FIM de toda página e reserva o espaço */
+  /* Tabela de página. O rodapé NAO mora mais num <tfoot>: ali o navegador o
+     repetia no fim de cada pagina, e a cotacao de duas paginas saia com o
+     cartao de contato duas vezes. Ele agora vem depois do conteudo, uma vez so.
+     Quem o empurra para o pe da folha numa cotacao de uma pagina e o
+     min-height de .qp-body. */
   .qp-page{width:100%;border-collapse:collapse;position:relative;z-index:1}
-  .qp-page>tfoot{display:table-footer-group}
-  .qp-page>tfoot>tr>td,.qp-page>tbody>tr>td{padding:0;vertical-align:top}
+  .qp-page>tbody>tr>td{padding:0;vertical-align:top}
   /* min-height preenche uma página para o rodapé ficar no fim mesmo com pouco conteúdo */
   .qp-body{min-height:248mm}
 
@@ -283,32 +286,11 @@ function QuotePrintTemplate({ form, rows, total, vendedor }: {
       <style>{`@media print{.qp-body{min-height:${(store.footer || store.footerCard) ? '212mm' : '252mm'}}}`}</style>
 
       <table className="qp-page">
-        {/* Rodapé — repetido no FIM de toda página */}
-        <tfoot>
-          <tr><td>
-            <div className="qp-footer">
-              {store.footer && <img className="qp-footer-img" src={store.footer} alt="" />}
-              {store.footerCard && (
-                <div className="qp-fcard">
-                  <div className="qp-fcard-top">
-                    <img className="qp-fcard-logo" src={store.header} alt={store.label} />
-                    <div>
-                      <div className="qp-fcard-nome">{vendedor?.nome || sellerName}</div>
-                      {vendedor?.phone && <div className="qp-fcard-linha">{vendedor.phone}</div>}
-                      {vendedor?.email && <div className="qp-fcard-linha">e-mail: {vendedor.email}</div>}
-                    </div>
-                  </div>
-                  <div className="qp-fcard-bar">Vendas, Locações e Serviços</div>
-                </div>
-              )}
-              <p className="qp-footer-text">
-                {`CNPJ ${store.rodape.cnpj} ${store.rodape.endereco} e-mail: ${store.rodape.email}`}
-              </p>
-            </div>
-          </td></tr>
-        </tfoot>
-
-        {/* Conteúdo — flui por quantas páginas forem necessárias */}
+        {/* Conteúdo — flui por quantas páginas forem necessárias; o rodapé vem
+            DEPOIS dele, uma vez so, no fim do documento. Antes ele morava num
+            <tfoot>, que o navegador repete no fim de CADA pagina: numa cotacao
+            de duas paginas o cartao de contato saia duas vezes, e na segunda
+            nem no pe da folha ficava — flutuava logo abaixo do texto curto. */}
         <tbody>
           <tr><td>
             <div className="qp-body">
@@ -389,6 +371,25 @@ function QuotePrintTemplate({ form, rows, total, vendedor }: {
               </div>{/* /qp-inner */}
               </div>{/* /qp-content */}
             </div>{/* /qp-body */}
+            <div className="qp-footer">
+              {store.footer && <img className="qp-footer-img" src={store.footer} alt="" />}
+              {store.footerCard && (
+                <div className="qp-fcard">
+                  <div className="qp-fcard-top">
+                    <img className="qp-fcard-logo" src={store.header} alt={store.label} />
+                    <div>
+                      <div className="qp-fcard-nome">{vendedor?.nome || sellerName}</div>
+                      {vendedor?.phone && <div className="qp-fcard-linha">{vendedor.phone}</div>}
+                      {vendedor?.email && <div className="qp-fcard-linha">e-mail: {vendedor.email}</div>}
+                    </div>
+                  </div>
+                  <div className="qp-fcard-bar">Vendas, Locações e Serviços</div>
+                </div>
+              )}
+              <p className="qp-footer-text">
+                {`CNPJ ${store.rodape.cnpj} ${store.rodape.endereco} e-mail: ${store.rodape.email}`}
+              </p>
+            </div>
           </td></tr>
         </tbody>
       </table>
@@ -461,12 +462,15 @@ export function QuoteModal({ open, onClose, quote, onSave, onDelete, nextIndex }
 
   const { data: vendedoresData } = useVendedores();
   const vendedores = vendedoresData?.items ?? [];
-  // /vendedores devolve os vendedores de TODAS as lojas, e o mesmo nome existe
-  // em mais de uma (a unicidade no banco e por (id_loja, nome)). Casar so pelo
-  // nome pegava o primeiro da lista — de qualquer loja —, entao um pedido da
-  // BTech podia ser gravado no Alcides da Lucky Store. Agora procura primeiro
-  // dentro da loja escolhida; o fallback pelo nome fica para o caso de o
-  // vendedor nao estar cadastrado nela, para nao travar o salvamento.
+  // /vendedores devolve os vendedores de TODAS as lojas, e o mesmo nome pode
+  // existir em mais de uma (a unicidade no banco e por (id_loja, nome)). Casar
+  // so pelo nome pegava o primeiro da lista — de qualquer loja —, entao um
+  // pedido da BTech podia ser gravado no cadastro de outra empresa.
+  //
+  // Procura dentro da loja escolhida primeiro. O fallback pelo nome fica para
+  // o vendedor que nao tem cadastro naquela loja: as empresas do grupo
+  // compartilham contato, e sem ele o salvamento iria com id_vendedor vazio,
+  // que o backend recusa com 422.
   const vendedorDaLoja = (nome: string, empresa?: string) => {
     const idLoja = empresa ? LOJA_IDS[empresa] : undefined;
     return (
@@ -779,11 +783,15 @@ export function QuoteModal({ open, onClose, quote, onSave, onDelete, nextIndex }
   const activePhases = (Object.keys(form.phases) as QuotePhaseKey[]).filter(k => form.phases[k].active);
   const marginBarW = Math.max(0, Math.min(margin, 100));
 
-  // Vendedor da cotacao, para o cartao do rodape da BTech. Casa pelo nome DENTRO
-  // da loja da cotacao: o mesmo vendedor tem um cadastro por loja, com telefone
-  // proprio, e casar so pelo nome imprimia o contato de outra empresa no
-  // timbrado. Sem correspondencia o cartao cai no nome digitado.
-  const vendedorDaCotacao = vendedorDaLoja(form.seller ?? '', form.company);
+  // Vendedor da cotacao, para o cartao do rodape da BTech.
+  //
+  // Pelo ID que a propria cotacao guarda: e ele que identifica o cadastro, e
+  // nao o nome. Numa cotacao nova, ainda nao salva, nao ha id, e ai vale o nome
+  // — de preferencia dentro da loja escolhida. Sem correspondencia, o cartao
+  // cai no nome digitado, sem telefone nem e-mail.
+  const vendedorDaCotacao =
+    (form.sellerId ? vendedores.find(v => v.id === form.sellerId) : undefined)
+    ?? vendedorDaLoja(form.seller ?? '', form.company);
 
   /* ---------------- Print rows (regular + direct-supply items) ---------------- */
   const printRows: PrintRow[] = [

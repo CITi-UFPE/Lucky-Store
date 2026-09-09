@@ -65,6 +65,11 @@ export interface Quote {
   directBilling: boolean;
   supplier: string;
   seller: Seller;
+  /** Id do vendedor no banco. O nome nao identifica: o mesmo vendedor tem um
+   *  cadastro por loja (a unicidade e por (id_loja, nome)), cada um com
+   *  telefone e e-mail proprios. Procurar pelo nome imprimia o contato de outra
+   *  empresa no timbrado. Ausente enquanto a cotacao nao foi salva. */
+  sellerId?: string;
   value: number;
   items: QuoteItem[];
   directSupplyItems: DirectSupplyQuoteItem[];

@@ -33,7 +33,14 @@ interface Vendedor { id: string; nome: string; id_loja: string; phone: string | 
 
 const LOJAS = { 'Lucky Store': 'loja-lucky', 'BTech': 'loja-btech' } as Record<string, string>;
 
-// Espelha vendedorDaLoja() do QuoteModal e o vendorIdByName() do OrderModal.
+// Espelha vendorIdByName(), usado para RESOLVER O ID AO SALVAR — nos dois
+// modais. Aqui o fallback pelo nome solto existe de proposito: sem id o payload
+// iria com id_vendedor vazio e o backend responderia 422, perdendo o
+// formulario inteiro.
+//
+// O cartao de contato do timbrado NAO usa esta regra: la o fallback imprimia o
+// telefone de outra empresa, e a versao estrita esta em
+// cotacao-rodape-vendedor.test.ts.
 function vendedorDaLoja(lista: Vendedor[], nome: string, empresa?: string) {
   const idLoja = empresa ? LOJAS[empresa] : undefined;
   return (
@@ -80,10 +87,13 @@ describe('escolha do vendedor pelo nome + loja', () => {
 describe('as telas usam a regra', () => {
   const ler = (p: string) => readFileSync(resolve(__dirname, '..', p), 'utf-8');
 
-  it('QuoteModal: o cartao do rodape casa pelo nome E pela loja', () => {
-    const fonte = ler('components/QuoteModal.tsx');
-    expect(fonte).toContain('const vendedorDaCotacao = vendedorDaLoja(form.seller ?? \'\', form.company);');
-    expect(fonte).not.toContain('vendedores.find(v => v.nome === form.seller)');
+  it('QuoteModal: o cartao do rodape nao casa pelo nome solto', () => {
+    // Casar pelo nome era o bug original; casar por nome+loja com fallback
+    // ainda imprimia o contato de outra empresa quando o vendedor nao tem
+    // cadastro naquela loja. Hoje o cartao vai pelo id — ver
+    // cotacao-rodape-vendedor.test.ts.
+    expect(ler('components/QuoteModal.tsx'))
+      .not.toContain('vendedores.find(v => v.nome === form.seller)');
   });
 
   it('QuoteModal: id_vendedor sai da loja da cotacao', () => {
