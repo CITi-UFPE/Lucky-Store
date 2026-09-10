@@ -222,10 +222,15 @@ interface StoreInfo {
   initials: string;
   header: string;
   footer?: string;
-  /** Cartao de contato montado em HTML, com logo da loja e dados do vendedor.
-   *  So a BTech usa: a Lucky tem o mesmo cartao dentro de quote-footer.png e
-   *  fica como esta. */
+  /** Cartao de contato montado em HTML, com logo da loja e dados do VENDEDOR
+   *  QUE ASSINOU aquela cotacao. E o unico jeito de o contato acompanhar quem
+   *  vendeu: enquanto o rodape era imagem, o contato impresso era o de quem
+   *  estava desenhado nela. */
   footerCard?: boolean;
+  /** Largura da logo dentro do cartao. O padrao (58px) foi medido na logo da
+   *  BTech, que e quase quadrada. A da Lucky e uma faixa larga e baixa: nos
+   *  mesmos 58px o "Informatica" some. */
+  footerLogoWidth?: number;
   /** Linha de identificação no pé do PDF. Antes era texto fixo com os dados da
    *  Lucky Store, então uma cotação da BTech saía impressa com o CNPJ e o
    *  e-mail da outra empresa. */
@@ -235,7 +240,16 @@ interface StoreInfo {
 const STORE_INFO: Record<string, StoreInfo> = {
   'Lucky Store': {
     label: 'Lucky Store', cnpj: '11.849.935/0001-63', initials: 'LS',
-    header: '/quote-header.png', footer: '/quote-footer.png',
+    header: '/quote-header.png',
+    // Era '/quote-footer.png'. Aquela imagem nao e uma faixa decorativa: ela
+    // tem o nome, o telefone e o e-mail do Alcides DESENHADOS dentro. Toda
+    // cotacao da Lucky saia com o contato dele — tendo vendido o Lucas, o
+    // Pedro ou ele. Como e imagem, nenhum codigo conseguia corrigir.
+    //
+    // O cartao em HTML e o mesmo da BTech, e o contato dele vem do vendedor que
+    // assinou aquela cotacao.
+    footerCard: true,
+    footerLogoWidth: 96,
     rodape: { cnpj: '11.849.935/0001-63', endereco: ENDERECO_GRUPO, email: 'contato@luckystore.com.br' },
   },
   'BTech': {
@@ -385,7 +399,12 @@ function QuotePrintTemplate({ form, rows, total, vendedor }: {
               {store.footerCard && (
                 <div className="qp-fcard">
                   <div className="qp-fcard-top">
-                    <img className="qp-fcard-logo" src={store.header} alt={store.label} />
+                    <img
+                      className="qp-fcard-logo"
+                      src={store.header}
+                      alt={store.label}
+                      style={store.footerLogoWidth ? { width: store.footerLogoWidth } : undefined}
+                    />
                     <div>
                       {/* No lugar do nome do vendedor. Ele ja assina o documento
                           logo acima, na linha de assinatura; aqui o que
