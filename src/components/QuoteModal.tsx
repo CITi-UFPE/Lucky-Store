@@ -1104,7 +1104,7 @@ export function QuoteModal({ open, onClose, quote, onSave, onDelete, nextIndex }
           <h2><FileText className="h-[15px] w-[15px]" /> Observações</h2>
           <div className="qm-body">
           <Textarea
-            className="bg-[#FBFCFE] border-[#E2E8F1] min-h-24"
+            className="bg-[#FBFCFE] border-[#E2E8F1] min-h-48 resize-y"
             value={form.observations || ''}
             onChange={e => set('observations', e.target.value)}
             placeholder="Anotações sobre a cotação..."

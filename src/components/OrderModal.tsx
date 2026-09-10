@@ -1565,7 +1565,7 @@ export function OrderModal({ open, onClose, order, onSave, nextOS, prefill }: Pr
           <div>
             <Label>Observações</Label>
             <Textarea
-              className="bg-[#FBFCFE] border-[#E2E8F1] min-h-24"
+              className="bg-[#FBFCFE] border-[#E2E8F1] min-h-48 resize-y"
               value={form.observations || ''}
               onChange={e => set('observations', e.target.value)}
               placeholder="Anotações sobre o pedido..."
