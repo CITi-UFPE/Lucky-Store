@@ -757,11 +757,17 @@ export default function Dashboard() {
                       sub="Multas + Juros"
                       accent="text-blue-700"
                     />
+                    {/* O card não tem campo para digitar porque não guarda um
+                        valor: ele SOMA as despesas cadastradas no período. Quem
+                        olhava aqui procurando onde editar não achava, porque o
+                        lugar é a tela de Financeiro — e nada no card dizia
+                        isso. Agora ele leva para lá. */}
                     <KpiCard
                       label="Custo Fixo"
                       value={BRL(gastosFixos)}
-                      sub="Despesas registradas"
+                      sub="Soma das despesas · clique para cadastrar"
                       accent="text-orange-500"
+                      onClick={() => navigate('/financial')}
                     />
                     <KpiCard
                       label="Margem Líquida"
