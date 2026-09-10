@@ -111,6 +111,30 @@ describe.each(EMPRESAS)('cotação da %s', (empresa, cnpjEsperado) => {
   });
 });
 
+describe('empresa que o front não reconhece', () => {
+  /**
+   * `company` chega vazio quando a loja não é reconhecida — LOJA_BY_ID vem das
+   * variáveis VITE_*_ID, e faltando uma, a cotação daquela loja perde o nome
+   * pelo caminho. Aí `STORE_INFO[form.company]` não acha nada e cai no default.
+   *
+   * O default imprimia `/quote-footer.png`, o rodapé da Lucky Store com o
+   * contato do Alcides desenhado dentro. Isso escondia o problema duas vezes:
+   * uma cotação da Lucky que caísse aqui saía IDÊNTICA a uma correta — mesma
+   * logo, mesmo rodapé, mesmo CNPJ —, e uma cotação de qualquer outra empresa
+   * saía com o contato do Alcides no pé.
+   */
+  it('ainda imprime o contato de quem assinou', () => {
+    const c = cartao(cotacao({ company: '' as never, seller: 'Pedro', sellerId: PEDRO.id }));
+    expect(c.linhas).toEqual([PEDRO.phone, `e-mail: ${PEDRO.email}`]);
+  });
+
+  it('não imprime o contato do Alcides por descuido', () => {
+    const c = cartao(cotacao({ company: 'Empresa Nova' as never, seller: 'Lucas', sellerId: LUCAS.id }));
+    expect(c.linhas.join(' ')).not.toContain(ALCIDES.phone);
+    expect(c.linhas.join(' ')).not.toContain(ALCIDES.email);
+  });
+});
+
 describe('o contato não é fixo em lugar nenhum', () => {
   it('trocar o vendedor troca o que sai impresso', () => {
     // O teste que pega o defeito original: com o rodapé em imagem, estas duas

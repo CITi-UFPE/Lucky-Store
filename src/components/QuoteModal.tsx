@@ -276,11 +276,28 @@ function QuotePrintTemplate({ form, rows, total, vendedor }: {
   const sellerName = (form.seller || '').trim() || '—';
   const sendDate = format(new Date(), 'dd/MM/yyyy');
 
+  // ATENCAO ao que este fallback imprime. Ele existe para a cotacao cuja
+  // empresa nao bate com nenhuma chave de STORE_INFO — o que acontece quando
+  // `company` chega vazio, e ela chega vazia quando a loja nao e reconhecida
+  // (LOJA_BY_ID vem das variaveis VITE_*_ID; faltando uma, a cotacao daquela
+  // loja perde o nome pelo caminho).
+  //
+  // Ele usava '/quote-footer.png', que e o rodape da LUCKY STORE com o contato
+  // do Alcides desenhado dentro. Isso escondia o problema duas vezes: uma
+  // cotacao da Lucky que caisse aqui saia identica a uma correta (mesma logo,
+  // mesmo rodape, mesmo CNPJ), e uma cotacao de QUALQUER outra empresa saia
+  // com o contato do Alcides no pe.
+  //
+  // Agora ele usa o cartao, que le o vendedor da cotacao. Continua imprimindo o
+  // CNPJ da Lucky por falta de coisa melhor, mas o contato nunca mais e de uma
+  // pessoa que nao assinou o documento.
   const store: StoreInfo = STORE_INFO[form.company] ?? {
+    ...STORE_INFO['Lucky Store'],
     label: form.company || '—',
     initials: (form.company || '').slice(0, 2).toUpperCase(),
-    header: '/quote-header.png', footer: '/quote-footer.png',
-    rodape: STORE_INFO['Lucky Store'].rodape,
+    // Sem CNPJ na linha de identificação: empresa desconhecida não deve sair do
+    // documento afirmando ser a Lucky Store. Era assim antes e continua.
+    cnpj: undefined,
   };
   const storeLine = store.cnpj ? `${store.label} - ${store.cnpj}` : store.label;
   const titleText = `Cotação - ${[form.index, store.initials, form.storeIndex, form.directBilling ? 'FD' : ''].filter(Boolean).join(' ')}`;
