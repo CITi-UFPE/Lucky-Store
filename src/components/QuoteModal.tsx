@@ -387,7 +387,10 @@ function QuotePrintTemplate({ form, rows, total, vendedor }: {
                   <div className="qp-fcard-top">
                     <img className="qp-fcard-logo" src={store.header} alt={store.label} />
                     <div>
-                      <div className="qp-fcard-nome">{vendedor?.nome || sellerName}</div>
+                      {/* No lugar do nome do vendedor. Ele ja assina o documento
+                          logo acima, na linha de assinatura; aqui o que
+                          identifica quem esta vendendo e o CNPJ. */}
+                      <div className="qp-fcard-nome">CNPJ {store.rodape.cnpj}</div>
                       {vendedor?.phone && <div className="qp-fcard-linha">{vendedor.phone}</div>}
                       {vendedor?.email && <div className="qp-fcard-linha">e-mail: {vendedor.email}</div>}
                     </div>
@@ -396,7 +399,7 @@ function QuotePrintTemplate({ form, rows, total, vendedor }: {
                 </div>
               )}
               <p className="qp-footer-text">
-                {`CNPJ ${store.rodape.cnpj} ${store.rodape.endereco} e-mail: ${store.rodape.email}`}
+                {`${store.rodape.endereco} e-mail: ${store.rodape.email}`}
               </p>
             </div>
           </td></tr>
