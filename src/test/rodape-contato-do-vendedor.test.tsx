@@ -77,6 +77,8 @@ function cartao(quote: Quote) {
   return {
     cnpj: card!.querySelector('.qp-fcard-cnpj')?.textContent ?? '',
     linhas: [...card!.querySelectorAll('.qp-fcard-linha')].map(e => e.textContent ?? ''),
+    /** A linha de letra miúda embaixo do cartão. */
+    rodapeTexto: raiz!.querySelector('.qp-footer-text')?.textContent ?? '',
   };
 }
 
@@ -100,6 +102,20 @@ describe.each(EMPRESAS)('cotação da %s', (empresa, cnpjEsperado) => {
       // As duas usam o mesmo cartão agora; o CNPJ é o que continua distinto.
       expect(cartao(cotacao({ company: empresa, seller: v.nome, sellerId: v.id })).cnpj)
         .toBe(cnpjEsperado);
+    });
+
+    it('a linha embaixo do cartão traz endereço e CEP, e nada de contato', () => {
+      // Vale para as duas empresas e para os três: a linha é a mesma em toda
+      // cotação, e repetir telefone e e-mail ali dava ao cliente um contato
+      // fixo brigando com o do vendedor logo acima.
+      const c = cartao(cotacao({ company: empresa, seller: v.nome, sellerId: v.id }));
+      expect(c.rodapeTexto).toContain('Rua Marechal Deodoro Nr 300 SL 1107');
+      expect(c.rodapeTexto).toContain('CEP: 52030-172');
+      expect(c.rodapeTexto).not.toContain('Fone');
+      expect(c.rodapeTexto).not.toContain('e-mail');
+      expect(c.rodapeTexto).not.toContain('@');
+      // E nem o telefone de nenhum dos três, por qualquer caminho.
+      for (const outro of VENDEDORES) expect(c.rodapeTexto).not.toContain(outro.phone);
     });
 
     it('funciona na cotação nova, que ainda não tem id de vendedor', () => {
