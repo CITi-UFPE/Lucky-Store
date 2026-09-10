@@ -64,8 +64,17 @@ describe('a linha de texto do rodapé', () => {
     expect(fonte).not.toContain('CNPJ ${store.rodape.cnpj} ${store.rodape.endereco}');
   });
 
-  it('mantém endereço e e-mail da empresa', () => {
-    expect(fonte).toContain('{`${store.rodape.endereco} e-mail: ${store.rodape.email}`}');
+  it('mantém endereço e CEP', () => {
+    expect(fonte).toContain('<p className="qp-footer-text">{store.rodape.endereco}</p>');
+    expect(fonte).toContain('CEP: 52030-172');
+  });
+
+  it('não repete telefone nem e-mail, que já estão no cartão', () => {
+    // O cartão logo acima traz os dois, e lá são os do VENDEDOR que assinou.
+    // Repetir um telefone fixo e um e-mail genérico embaixo dava ao cliente
+    // dois contatos para o mesmo documento, sem dizer para qual ligar.
+    expect(fonte).not.toContain('e-mail: ${store.rodape.email}');
+    expect(fonte).not.toContain('Fone/Fax');
   });
 });
 

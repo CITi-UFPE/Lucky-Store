@@ -210,11 +210,17 @@ const QUOTE_PRINT_CSS = `
   .qp-sign-name{font-size:12px;color:#1f2d3d}
 `;
 
-/** Endereço e telefone são os mesmos para as lojas do grupo — só CNPJ e e-mail mudam.
+/** Endereço e CEP, iguais para as lojas do grupo.
+ *
+ *  Sem telefone e sem e-mail: os dois já aparecem no cartão logo acima, e lá
+ *  são os do VENDEDOR que assinou a cotação. Repetir um telefone fixo e um
+ *  e-mail genérico embaixo não acrescentava nada e ainda dava ao cliente dois
+ *  contatos diferentes para o mesmo documento — sem dizer para qual ligar.
+ *
  *  CEP sem ponto (52030-172): é o formato oficial dos Correios. Estava escrito
  *  como 52.030-172, com um ponto que não existe na norma. */
 const ENDERECO_GRUPO =
-  'Rua Marechal Deodoro Nr 300 SL 1107, Encruzilhada Recife, PE CEP: 52030-172 Fone/Fax: +55 81 3228.8509';
+  'Rua Marechal Deodoro Nr 300 SL 1107, Encruzilhada Recife, PE CEP: 52030-172';
 
 interface StoreInfo {
   label: string;
@@ -231,10 +237,15 @@ interface StoreInfo {
    *  BTech, que e quase quadrada. A da Lucky e uma faixa larga e baixa: nos
    *  mesmos 58px o "Informatica" some. */
   footerLogoWidth?: number;
-  /** Linha de identificação no pé do PDF. Antes era texto fixo com os dados da
-   *  Lucky Store, então uma cotação da BTech saía impressa com o CNPJ e o
-   *  e-mail da outra empresa. */
-  rodape: { cnpj: string; endereco: string; email: string };
+  /** Dados da empresa no pé do PDF: o CNPJ vai no cartão, o endereço na linha
+   *  de texto abaixo dele. Antes era texto fixo com os dados da Lucky Store,
+   *  então uma cotação da BTech saía impressa com o CNPJ da outra empresa.
+   *
+   *  Não tem e-mail: o do vendedor já está no cartão, e um segundo e-mail
+   *  genérico embaixo só dava ao cliente dois contatos para o mesmo documento.
+   *  (A OS continua com e-mail e telefone no rodapé — lá não existe cartão
+   *  acima, então é a única identificação de contato do documento.) */
+  rodape: { cnpj: string; endereco: string };
 }
 
 const STORE_INFO: Record<string, StoreInfo> = {
@@ -250,19 +261,19 @@ const STORE_INFO: Record<string, StoreInfo> = {
     // assinou aquela cotacao.
     footerCard: true,
     footerLogoWidth: 96,
-    rodape: { cnpj: '11.849.935/0001-63', endereco: ENDERECO_GRUPO, email: 'contato@luckystore.com.br' },
+    rodape: { cnpj: '11.849.935/0001-63', endereco: ENDERECO_GRUPO },
   },
   'BTech': {
     label: 'BTech Store', cnpj: '54.677.704/0001-22', initials: 'BS',
     header: '/btech-header.jpeg', footerCard: true,
-    rodape: { cnpj: '54.677.704/0001-22', endereco: ENDERECO_GRUPO, email: 'btechstore@outlook.com.br' },
+    rodape: { cnpj: '54.677.704/0001-22', endereco: ENDERECO_GRUPO },
   },
   'AJJ': {
     label: 'AJJ', initials: 'AJJ',
     header: '/quote-header.png', footer: '/quote-footer.png',
     // A AJJ opera sob o CNPJ e o e-mail da Lucky Store — decisao do negocio, nao
     // omissao. Se um dia ela tiver dados proprios, e so trocar aqui.
-    rodape: { cnpj: '11.849.935/0001-63', endereco: ENDERECO_GRUPO, email: 'contato@luckystore.com.br' },
+    rodape: { cnpj: '11.849.935/0001-63', endereco: ENDERECO_GRUPO },
   },
 };
 
@@ -434,9 +445,9 @@ function QuotePrintTemplate({ form, rows, total, vendedor }: {
                   <div className="qp-fcard-bar">Vendas, Locações e Serviços</div>
                 </div>
               )}
-              <p className="qp-footer-text">
-                {`${store.rodape.endereco} e-mail: ${store.rodape.email}`}
-              </p>
+              {/* Só endereço e CEP. Telefone e e-mail saíram: o cartão acima já
+                  traz os dois, e lá são os do vendedor que assinou. */}
+              <p className="qp-footer-text">{store.rodape.endereco}</p>
             </div>
           </td></tr>
         </tbody>
