@@ -29,7 +29,7 @@ const fonte = readFileSync(
 
 describe('cartão de contato do rodapé', () => {
   it('a primeira linha é o CNPJ da empresa', () => {
-    expect(fonte).toContain('<div className="qp-fcard-nome">CNPJ {store.rodape.cnpj}</div>');
+    expect(fonte).toContain('<div className="qp-fcard-cnpj">CNPJ {store.rodape.cnpj}</div>');
   });
 
   it('não mostra mais o nome do vendedor', () => {
@@ -38,7 +38,7 @@ describe('cartão de contato do rodapé', () => {
 
   it('telefone e e-mail continuam embaixo, na mesma ordem', () => {
     expect(fonte).toMatch(
-      /qp-fcard-nome">CNPJ \{store\.rodape\.cnpj\}<\/div>\s*\n\s*\{vendedor\?\.phone &&[^\n]*\n\s*\{vendedor\?\.email &&/
+      /qp-fcard-cnpj">CNPJ \{store\.rodape\.cnpj\}<\/div>\s*\n\s*\{vendedor\?\.phone &&[^\n]*\n\s*\{vendedor\?\.email &&/
     );
   });
 
@@ -46,6 +46,12 @@ describe('cartão de contato do rodapé', () => {
     // Vendedor sem telefone cadastrado nao deixa uma linha vazia no cartao.
     expect(fonte).toContain('{vendedor?.phone && <div className="qp-fcard-linha">{vendedor.phone}</div>}');
     expect(fonte).toContain('{vendedor?.email && <div className="qp-fcard-linha">e-mail: {vendedor.email}</div>}');
+  });
+
+  it('o CNPJ não vai em negrito', () => {
+    // A classe carregava font-weight:700 de quando mostrava o nome do vendedor.
+    expect(fonte).toContain('.qp-fcard-cnpj{font-size:12.5px;font-weight:400;');
+    expect(fonte).not.toContain('.qp-fcard-nome{');
   });
 
   it('a faixa azul continua a mesma', () => {

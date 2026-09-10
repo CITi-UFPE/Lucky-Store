@@ -151,7 +151,7 @@ const QUOTE_PRINT_CSS = `
   .qp-fcard-top{display:flex;align-items:center;gap:14px;background:#eef0f2;
     border-radius:6px 6px 0 0;padding:10px 14px}
   .qp-fcard-logo{width:58px;height:auto;background:#fff;border-radius:4px;padding:4px;flex:none}
-  .qp-fcard-nome{font-size:12.5px;font-weight:700;color:#1f2d3d;line-height:1.35}
+  .qp-fcard-cnpj{font-size:12.5px;font-weight:400;color:#1f2d3d;line-height:1.35}
   .qp-fcard-linha{font-size:11.5px;color:#3f4d5e;line-height:1.45}
   .qp-fcard-bar{background:#1f7fb5;color:#fff;font-size:10px;font-weight:700;
     letter-spacing:.12em;text-transform:uppercase;text-align:center;padding:5px 14px;
@@ -390,7 +390,7 @@ function QuotePrintTemplate({ form, rows, total, vendedor }: {
                       {/* No lugar do nome do vendedor. Ele ja assina o documento
                           logo acima, na linha de assinatura; aqui o que
                           identifica quem esta vendendo e o CNPJ. */}
-                      <div className="qp-fcard-nome">CNPJ {store.rodape.cnpj}</div>
+                      <div className="qp-fcard-cnpj">CNPJ {store.rodape.cnpj}</div>
                       {vendedor?.phone && <div className="qp-fcard-linha">{vendedor.phone}</div>}
                       {vendedor?.email && <div className="qp-fcard-linha">e-mail: {vendedor.email}</div>}
                     </div>
