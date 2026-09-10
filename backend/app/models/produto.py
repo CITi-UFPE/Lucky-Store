@@ -31,6 +31,10 @@ class Produto(Base):
 
     sub_compras = Column(JSONB, nullable=True)
 
+    # Anotacoes do item, escritas na tela de Produtos. Text pelo mesmo motivo
+    # da observacao do pedido e da cotacao: e texto livre e nao deve ter teto.
+    observacao = Column(Text, nullable=True)
+
     fornecedor = Column(Text, nullable=True)
     is_direct_supply = Column(Boolean, nullable=False, default=False)
     porcentagem_fornecedor = Column(Numeric(5, 2), nullable=True)

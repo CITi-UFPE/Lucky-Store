@@ -10,6 +10,7 @@ class ProdutoCreate(BaseModel):
     id_vendedor: UUID
     id_comprador: Optional[UUID] = None
     descricao: str
+    observacao: Optional[str] = None
     quantidade: int = Field(gt=0)
     valor_projetado: Decimal = Field(gt=0)
     preco_custo: Optional[Decimal] = None
@@ -26,6 +27,10 @@ class ProdutoCreate(BaseModel):
 
 
 class ProdutoUpdate(BaseModel):
+    # String vazia limpa a anotacao; None a deixa como esta. E de proposito:
+    # update_item usa exclude_none, entao None significa "nao mexi neste
+    # campo" e nunca chega a apagar nada sem querer.
+    observacao: Optional[str] = None
     preco_custo: Optional[Decimal] = None
     valor_compra: Optional[Decimal] = None
     fornecedor: Optional[str] = None
@@ -62,6 +67,7 @@ class ProdutoResponse(BaseModel):
     id_vendedor: UUID
     id_comprador: Optional[UUID]
     descricao: str
+    observacao: Optional[str] = None
     quantidade: int
     valor_projetado: Decimal
     preco_custo: Optional[Decimal]

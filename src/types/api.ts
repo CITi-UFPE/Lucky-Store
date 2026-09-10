@@ -190,6 +190,8 @@ export interface ProdutoApiItem {
   id_pedido: string;
   id_vendedor: string;
   descricao: string;
+  /** Anotações do item, escritas na tela de Produtos. */
+  observacao: string | null;
   quantidade: number;
   valor_projetado: string;
   preco_custo: string | null;

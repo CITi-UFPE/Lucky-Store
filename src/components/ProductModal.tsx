@@ -5,10 +5,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
-import { CalendarIcon, Plus, Trash2, AlertTriangle, Printer, ClipboardList, ShoppingBag, Wallet } from 'lucide-react';
+import { CalendarIcon, Plus, Trash2, AlertTriangle, Printer, ClipboardList, ShoppingBag, Wallet, FileText } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
@@ -137,11 +138,13 @@ export function ProductModal({ open, onClose, order, item, onSave }: Props) {
   const { data: vendedoresData } = useVendedores();
   const vendedores = vendedoresData?.items ?? [];
   const [subs, setSubs] = useState<SubPurchase[]>([]);
+  const [observacoes, setObservacoes] = useState('');
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (item) {
       setSubs(item.subPurchases ? [...item.subPurchases] : []);
+      setObservacoes(item.observations ?? '');
     }
   }, [item, open]);
 
@@ -162,6 +165,7 @@ export function ProductModal({ open, onClose, order, item, onSave }: Props) {
   const handleSave = async () => {
     const updatedItem: OrderItem = {
       ...item,
+      observations: observacoes,
       subPurchases: subs,
     };
     updatedItem.purchaseValue = calcItemFinalValue(updatedItem);
@@ -181,6 +185,9 @@ export function ProductModal({ open, onClose, order, item, onSave }: Props) {
       : 'In Stock';
 
     const payload: Record<string, unknown> = {};
+    // Sempre vai, inclusive vazio: e assim que apagar a anotacao funciona. O
+    // backend usa exclude_none, entao string vazia limpa e null seria ignorado.
+    payload.observacao = observacoes;
     payload.sub_compras = subs;
     if (subs.length > 0) payload.valor_compra = updatedItem.purchaseValue;
     payload.status = dominantStatus;
@@ -368,6 +375,23 @@ export function ProductModal({ open, onClose, order, item, onSave }: Props) {
           </div>{/* /pm-body sec-compras */}
         </section>
 
+        {/* ============== OBSERVAÇÕES ============== */}
+        <section className="pm-card" id="sec-obs">
+          <h2><FileText className="h-4 w-4" /> Observações</h2>
+          <div className="pm-body">
+            {/* Do item, e nao do pedido: aqui vai o que e daquele produto —
+                fornecedor que ligou, prazo que mudou, por que a compra parou.
+                Na observacao do pedido isso se misturava com a dos outros
+                itens. Sem limite de caracteres, como as outras. */}
+            <Textarea
+              className="bg-[#FBFCFE] border-[#E2E8F1] min-h-48 resize-y"
+              value={observacoes}
+              onChange={e => setObservacoes(e.target.value)}
+              placeholder="Anotações sobre este produto..."
+            />
+          </div>
+        </section>
+
         {/* ============== HISTÓRICO DE STATUS ============== */}
         {order.id && item.id && (
           <ItemStatusTimeline pedidoId={order.id} itemId={item.id} />
@@ -415,6 +439,7 @@ export function ProductModal({ open, onClose, order, item, onSave }: Props) {
             <nav className="pm-jump">
               <a href="#sec-geral">Informações Gerais</a>
               <a href="#sec-compras">Detalhes das Compras</a>
+              <a href="#sec-obs">Observações</a>
             </nav>
           </aside>
 

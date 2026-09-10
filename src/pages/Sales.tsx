@@ -287,6 +287,7 @@ export function pedidoListToOrder(item: PedidoListItem): Order {
     items: (item.produtos ?? []).filter(p => !p.is_direct_supply).map(p => ({
       id: p.id,
       name: p.descricao,
+      observations: p.observacao ?? '',
       quantity: p.quantidade,
       status: p.status as ItemStatus,
       projectedValue: parseFloat(String(p.valor_projetado)) || 0,
@@ -667,6 +668,7 @@ export default function Sales() {
     const item: OrderItem = {
       id: produto.id,
       name: produto.descricao,
+      observations: produto.observacao ?? '',
       quantity: produto.quantidade,
       status: produto.status as ItemStatus,
       projectedValue: parseFloat(String(produto.valor_projetado)) || 0,

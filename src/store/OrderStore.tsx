@@ -118,6 +118,10 @@ export interface SubPurchase {
 export interface OrderItem {
   id: string;
   name: string;
+  /** Anotações do item, escritas na tela de Produtos. Ficam no produto, e não
+   *  na observação do pedido, para não misturar o que é de um item com o que é
+   *  dos outros. */
+  observations?: string;
   quantity: number;
   status: ItemStatus;
   projectedValue: number;

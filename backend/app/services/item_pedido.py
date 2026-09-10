@@ -47,6 +47,7 @@ class ItemPedidoService:
             id_vendedor=data.id_vendedor,
             id_comprador=data.id_comprador,
             descricao=data.descricao,
+            observacao=data.observacao,
             quantidade=data.quantidade,
             valor_projetado=data.valor_projetado,
             valor_compra=data.valor_compra,
