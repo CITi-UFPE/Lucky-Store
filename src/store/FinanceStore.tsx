@@ -27,6 +27,20 @@ export interface Expense {
   installments?: number;
   installmentPlan?: InstallmentPlan[];
   observations?: string;
+  /**
+   * Custo fixo se repete todo mês. Marcando isto ao CRIAR, o backend passa a
+   * gerar uma despesa por mês a partir desta — despesas de verdade, uma por
+   * mês, para que março possa estar pago e abril não.
+   *
+   * Só vale na criação: parar de repetir também decide o que fazer com os meses
+   * futuros já lançados, e por isso tem ação própria em vez de ser um campo
+   * que se desmarca sem querer.
+   */
+  recurring?: boolean;
+  /** Agrupa as ocorrências da mesma recorrência. Vem do backend. */
+  recurrenceId?: string;
+  /** Mês a que esta ocorrência se refere (dia 1). Vem do backend. */
+  competence?: string;
 }
 
 export function expenseSavings(e: Expense): number {
@@ -220,6 +234,7 @@ export function expandOrderFretes(o: Order): CalendarEntry[] {
 interface FinanceContextType {
   expenses: Expense[];
   addExpense: (e: Expense) => void;
+  endRecurrence: (id: string) => void;
   updateExpense: (e: Expense) => void;
   deleteExpense: (id: string) => void;
   /** Monthly goals (KPI configuration) */
@@ -257,6 +272,7 @@ interface DespesaApiItem {
   valor_pago: string | null; data_pagamento: string | null; metodo_pagamento: string | null;
   parcelas: number | null; plano_parcelas: { date: string; value: string }[] | null;
   observacoes: string | null;
+  recorrente?: boolean; recorrencia_id?: string | null; competencia?: string | null;
 }
 
 function fromApi(a: DespesaApiItem): Expense {
@@ -276,6 +292,9 @@ function fromApi(a: DespesaApiItem): Expense {
       ? a.plano_parcelas.map(p => ({ date: p.date, value: Number(p.value) }))
       : undefined,
     observations: a.observacoes ?? undefined,
+    recurring: a.recorrente ?? false,
+    recurrenceId: a.recorrencia_id ?? undefined,
+    competence: a.competencia ?? undefined,
   };
 }
 
@@ -293,6 +312,9 @@ function toApiPayload(e: Expense) {
     parcelas: e.installments ?? null,
     plano_parcelas: e.installmentPlan ?? null,
     observacoes: e.observations ?? null,
+    // O backend só lê isto no POST. No PUT ele ignora, de propósito: desligar a
+    // recorrência é ação separada, porque também apaga os meses futuros.
+    recorrente: e.recurring ?? false,
   };
 }
 
@@ -312,15 +334,38 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
       .catch(() => { /* mantém lista vazia se API indisponível */ });
   }, []);
 
+  /** Recarrega a lista do servidor. */
+  const recarregar = useCallback(
+    () => apiFetch<DespesaApiItem[]>('/despesas').then(d => setExpenses(d.map(fromApi))),
+    [],
+  );
+
   const addExpense = useCallback((e: Expense) => {
     setExpenses(p => [...p, e]);
     apiFetch<DespesaApiItem>('/despesas', {
       init: { method: 'POST', body: JSON.stringify(toApiPayload(e)) },
     }).then(created => {
       setExpenses(p => p.map(x => x.id === e.id ? fromApi(created) : x));
+      // Despesa recorrente nasce com os próximos meses junto, e eles são criados
+      // no servidor. Sem recarregar, a tela mostraria só o primeiro mês e daria
+      // a impressão de que a repetição não funcionou.
+      if (e.recurring) return recarregar();
       invalidateDashboard();
-    }).catch(() => { /* mantém entrada otimista */ });
-  }, [invalidateDashboard]);
+    }).then(() => { if (e.recurring) invalidateDashboard(); })
+      .catch(() => { /* mantém entrada otimista */ });
+  }, [invalidateDashboard, recarregar]);
+
+  /** Encerra a repetição da série a que esta despesa pertence.
+   *
+   *  Recarrega em vez de mexer na lista local: encerrar apaga as previsões
+   *  futuras, e adivinhar aqui quais sumiram significaria repetir a regra do
+   *  servidor — e ela mudar de um lado só. */
+  const endRecurrence = useCallback((id: string) => {
+    apiFetch(`/despesas/${id}/encerrar-recorrencia`, { init: { method: 'POST' } })
+      .then(() => recarregar())
+      .then(() => invalidateDashboard())
+      .catch(() => { /* a lista continua como está */ });
+  }, [invalidateDashboard, recarregar]);
 
   const updateExpense = useCallback((e: Expense) => {
     setExpenses(p => p.map(x => x.id === e.id ? e : x));
@@ -331,11 +376,17 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
   }, [invalidateDashboard]);
 
   const deleteExpense = useCallback((id: string) => {
+    // Numa despesa recorrente, o servidor remove TODAS as cópias não pagas, e
+    // não só esta. Tirar só o id da lista local deixaria os outros meses na
+    // tela até alguém recarregar — com a impressão de que a exclusão falhou
+    // pela metade. Por isso a lista vem do servidor de novo.
+    const recorrente = expenses.find(x => x.id === id)?.recurrenceId;
     setExpenses(p => p.filter(x => x.id !== id));
     apiFetch(`/despesas/${id}`, { init: { method: 'DELETE' } })
+      .then(() => (recorrente ? recarregar() : undefined))
       .then(() => invalidateDashboard())
       .catch(() => { /* remoção otimista já aplicada */ });
-  }, [invalidateDashboard]);
+  }, [expenses, invalidateDashboard, recarregar]);
 
   const upsertGoal = useCallback((g: Goal) => {
     setGoals(p => {
@@ -346,7 +397,7 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
   const deleteGoal = useCallback((key: string) => setGoals(p => p.filter(x => x.key !== key)), []);
 
   return (
-    <FinanceContext.Provider value={{ expenses, addExpense, updateExpense, deleteExpense, goals, upsertGoal, deleteGoal }}>
+    <FinanceContext.Provider value={{ expenses, addExpense, endRecurrence, updateExpense, deleteExpense, goals, upsertGoal, deleteGoal }}>
       {children}
     </FinanceContext.Provider>
   );

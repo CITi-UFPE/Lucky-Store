@@ -69,7 +69,7 @@ const TYPE_LABELS: Record<CalendarEntry['type'], string> = {
 const fmtDate = (iso: string) => format(new Date(iso + 'T12:00:00'), 'dd/MM/yyyy');
 
 export function FinancialManager() {
-  const { expenses, addExpense, updateExpense, deleteExpense } = useFinance();
+  const { expenses, addExpense, updateExpense, deleteExpense, endRecurrence } = useFinance();
   const { data: orders = [] } = useFinancialOrders();
   const { data: rmasData } = useRmas({ limit: 500 });
   const rmas = rmasData?.items ?? [];
@@ -760,6 +760,7 @@ export function FinancialManager() {
         onClose={() => setExpModal({ open: false, expense: null })}
         onSave={e => expModal.expense ? updateExpense(e) : addExpense(e)}
         onDelete={deleteExpense}
+        onEndRecurrence={endRecurrence}
       />
       <OrderModal
         open={orderModal.open}

@@ -32,6 +32,13 @@ def _fake_despesa(despesa_id=None):
     d.parcelas = None
     d.plano_parcelas = None
     d.observacoes = None
+    # Campos de recorrencia. Precisam estar aqui explicitamente: num MagicMock
+    # todo atributo nao declarado devolve outro MagicMock, e a validacao da
+    # resposta rejeita isso — sete testes desta suite quebraram de uma vez
+    # quando DespesaOut ganhou os campos. Uma despesa comum nao e recorrente.
+    d.recorrente = False
+    d.recorrencia_id = None
+    d.competencia = None
     d.created_by = uuid.uuid4()
     d.created_at = datetime.now(timezone.utc)
     d.updated_at = datetime.now(timezone.utc)

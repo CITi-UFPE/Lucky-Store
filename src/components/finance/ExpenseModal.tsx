@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent } from '@/components/ui/card';
+import { Switch } from '@/components/ui/switch';
 import { Printer, Trash2 } from 'lucide-react';
 import { Expense, ExpenseKind, expenseSavings, InstallmentPlan } from '@/store/FinanceStore';
 import { PAYMENT_METHODS, PAYMENT_METHOD_LABELS, PaymentMethod } from '@/store/OrderStore';
@@ -25,6 +26,8 @@ interface Props {
   expense?: Expense | null;
   onSave: (e: Expense) => void;
   onDelete?: (id: string) => void;
+  /** Encerra a série desta despesa. Ausente = a tela não oferece o encerrar. */
+  onEndRecurrence?: (id: string) => void;
 }
 
 const empty = (kind: ExpenseKind): Expense => ({
@@ -36,10 +39,11 @@ const empty = (kind: ExpenseKind): Expense => ({
   paymentMethod: '',
 });
 
-export function ExpenseModal({ open, onClose, expense, onSave, onDelete }: Props) {
+export function ExpenseModal({ open, onClose, expense, onSave, onDelete, onEndRecurrence }: Props) {
   const [step, setStep] = useState<'pick' | 'form'>('pick');
   const [e, setE] = useState<Expense>(empty('PREVISAO'));
   const [confirmDel, setConfirmDel] = useState(false);
+  const [confirmEnd, setConfirmEnd] = useState(false);
 
   useEffect(() => {
     if (open) {
@@ -191,6 +195,50 @@ export function ExpenseModal({ open, onClose, expense, onSave, onDelete }: Props
           </CardContent></Card>
         )}
 
+        {/* Repetição.
+            Só aparece ao CRIAR. Numa despesa que já existe, desmarcar não é
+            "não repetir": é apagar os meses futuros já lançados. Isso é ação
+            deliberada e mora no card de recorrência, com confirmação — não num
+            switch que se desmarca sem querer ao editar outro campo.
+
+            Numa ocorrência gerada (recurrenceId presente) também não aparece:
+            ela não comanda a série, só pertence a ela. */}
+        {!expense && (
+          <Card><CardContent className="pt-4">
+            <h3 className="font-semibold text-secondary mb-2">Repetição</h3>
+            <label className="flex items-start gap-3 cursor-pointer">
+              <Switch
+                checked={!!e.recurring}
+                onCheckedChange={v => upd('recurring', v)}
+                className="mt-0.5"
+              />
+              <span className="text-sm">
+                <span className="font-medium">Repetir todo mês</span>
+                <span className="block text-muted-foreground text-xs mt-0.5">
+                  Cria uma despesa por mês a partir desta, até você encerrar. Cada
+                  mês pode ser pago, editado ou excluído por conta própria.
+                </span>
+              </span>
+            </label>
+          </CardContent></Card>
+        )}
+
+        {/* Numa ocorrência de uma série ativa, o caminho para parar. */}
+        {expense?.recurrenceId && expense.recurring && onEndRecurrence && (
+          <Card><CardContent className="pt-4">
+            <h3 className="font-semibold text-secondary mb-2">Repetição</h3>
+            <div className="flex items-start justify-between gap-3">
+              <span className="text-sm text-muted-foreground">
+                Esta despesa se repete todo mês. Encerrar mantém o que já passou e
+                os meses já pagos, e remove as previsões futuras.
+              </span>
+              <Button variant="outline" className="shrink-0" onClick={() => setConfirmEnd(true)}>
+                Encerrar repetição
+              </Button>
+            </div>
+          </CardContent></Card>
+        )}
+
         {/* Summary (PREVISAO) */}
         {isPrevisao && (
           <Card><CardContent className="pt-4">
@@ -224,7 +272,15 @@ export function ExpenseModal({ open, onClose, expense, onSave, onDelete }: Props
           <AlertDialogHeader>
             <AlertDialogTitle>Excluir despesa?</AlertDialogTitle>
             <AlertDialogDescription>
-              Esta ação removerá permanentemente a despesa "{e.service || e.kind}".
+              {e.recurrenceId ? (
+                <>
+                  "{e.service || e.kind}" se repete todo mês. Excluir remove
+                  <strong> todas as repetições ainda não pagas</strong>, e não só
+                  este mês — os meses já pagos ficam, porque o dinheiro saiu.
+                </>
+              ) : (
+                <>Esta ação removerá permanentemente a despesa "{e.service || e.kind}".</>
+              )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -234,6 +290,27 @@ export function ExpenseModal({ open, onClose, expense, onSave, onDelete }: Props
               onClick={() => { onDelete?.(e.id); setConfirmDel(false); onClose(); }}
             >
               Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={confirmEnd} onOpenChange={setConfirmEnd}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Encerrar a repetição?</AlertDialogTitle>
+            <AlertDialogDescription>
+              "{e.service || e.kind}" deixa de gerar meses novos. O que já passou
+              fica, e os meses futuros que já estiverem pagos também. As previsões
+              futuras ainda não pagas são removidas.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => { onEndRecurrence?.(e.id); setConfirmEnd(false); onClose(); }}
+            >
+              Encerrar
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

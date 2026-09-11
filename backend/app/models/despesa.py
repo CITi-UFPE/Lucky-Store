@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime, timezone
-from sqlalchemy import Column, String, Integer, Date, DateTime, Text, Numeric, ForeignKey  # type: ignore[import]
+from sqlalchemy import Boolean, Column, String, Integer, Date, DateTime, Text, Numeric, ForeignKey  # type: ignore[import]
 from sqlalchemy.dialects.postgresql import UUID, JSONB  # type: ignore[import]
 from app.database import Base
 
@@ -21,6 +21,21 @@ class Despesa(Base):
     parcelas = Column(Integer, nullable=True)
     plano_parcelas = Column(JSONB, nullable=True)      # [{"date": "yyyy-mm-dd", "value": 0.00}]
     observacoes = Column(Text, nullable=True)
+
+    # ── Recorrencia ───────────────────────────────────────────────────────────
+    # Custo fixo se repete todo mes. Em vez de um registro contado varias vezes,
+    # cada mes e uma despesa de verdade: assim o aluguel de marco pode estar
+    # pago e o de abril nao, e um mes pode ter valor diferente.
+    #
+    # `recorrencia_id` agrupa as ocorrencias — a primeira leva o proprio id.
+    # `recorrente` diz se o grupo ainda gera meses novos; encerrar e por false,
+    # e o que ja existe fica, porque e historico.
+    # `competencia` e o mes da ocorrencia, sempre no dia 1. Nao da para usar
+    # data_prevista no lugar: o dia do mes varia (31 vira 30 em abril) e a data
+    # pode ser editada depois, o que quebraria a unicidade que impede duplicar.
+    recorrencia_id = Column(UUID(as_uuid=True), nullable=True, index=True)
+    recorrente = Column(Boolean, nullable=False, default=False)
+    competencia = Column(Date, nullable=True)
 
     created_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)

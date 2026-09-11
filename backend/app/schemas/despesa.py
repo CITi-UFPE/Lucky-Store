@@ -23,6 +23,9 @@ class DespesaCreate(BaseModel):
     parcelas: Optional[int] = None
     plano_parcelas: Optional[List[PlanoParcelaItem]] = None
     observacoes: Optional[str] = None
+    # Custo fixo se repete todo mes. Marcando aqui, esta despesa vira a origem
+    # de um grupo e o sistema passa a criar uma despesa por mes a partir dela.
+    recorrente: bool = False
 
 
 class DespesaUpdate(BaseModel):
@@ -38,6 +41,9 @@ class DespesaUpdate(BaseModel):
     parcelas: Optional[int] = None
     plano_parcelas: Optional[List[PlanoParcelaItem]] = None
     observacoes: Optional[str] = None
+    # Ausente de proposito: ligar ou desligar a recorrencia nao e edicao de
+    # campo, porque desligar tambem precisa decidir o que fazer com os meses
+    # futuros ja lancados. Isso tem rota propria (POST .../encerrar-recorrencia).
 
 
 class DespesaOut(BaseModel):
@@ -54,6 +60,11 @@ class DespesaOut(BaseModel):
     parcelas: Optional[int] = None
     plano_parcelas: Optional[List[PlanoParcelaItem]] = None
     observacoes: Optional[str] = None
+    # A tela usa os tres para mostrar o selo de recorrente, dizer de que mes e
+    # a ocorrencia e oferecer o encerrar apenas onde ele faz sentido.
+    recorrente: bool = False
+    recorrencia_id: Optional[UUID] = None
+    competencia: Optional[date] = None
     created_by: UUID
     created_at: datetime
     updated_at: datetime
