@@ -19,14 +19,14 @@ describe('DashboardPieChart', () => {
 
   it('renderiza os 3 nomes de slice quando todos os valores > 0', () => {
     render(<DashboardPieChart custoProdutos={100} custoFrete={200} custoAdicionais={50} />);
-    expect(screen.getByText('Produtos: 100')).toBeInTheDocument();
+    expect(screen.getByText('Custo de produtos: 100')).toBeInTheDocument();
     expect(screen.getByText('Fretes: 200')).toBeInTheDocument();
     expect(screen.getByText('Custos adicionais: 50')).toBeInTheDocument();
   });
 
   it('filtra slice com value = 0 (Custos adicionais=0 não aparece)', () => {
     render(<DashboardPieChart custoProdutos={100} custoFrete={200} custoAdicionais={0} />);
-    expect(screen.getByText('Produtos: 100')).toBeInTheDocument();
+    expect(screen.getByText('Custo de produtos: 100')).toBeInTheDocument();
     expect(screen.getByText('Fretes: 200')).toBeInTheDocument();
     expect(screen.queryByText(/Custos adicionais:/)).not.toBeInTheDocument();
   });
@@ -35,7 +35,7 @@ describe('DashboardPieChart', () => {
 
 it('shows the three components from the reported case', () => {
   render(<DashboardPieChart custoProdutos={840} custoAdicionais={85.4} custoFrete={135} />);
-  expect(screen.getByText('Produtos: 840')).toBeInTheDocument();
+  expect(screen.getByText('Custo de produtos: 840')).toBeInTheDocument();
   expect(screen.getByText('Custos adicionais: 85.4')).toBeInTheDocument();
   expect(screen.getByText('Fretes: 135')).toBeInTheDocument();
 });

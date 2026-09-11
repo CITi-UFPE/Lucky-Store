@@ -12,7 +12,7 @@ interface DashboardPieChartProps {
 
 export function DashboardPieChart({ custoProdutos, custoFrete, custoAdicionais }: DashboardPieChartProps) {
   const data = [
-    { name: 'Produtos', value: custoProdutos },
+    { name: 'Custo de produtos', value: custoProdutos },
     { name: 'Fretes', value: custoFrete },
     { name: 'Custos adicionais', value: custoAdicionais },
   ].filter(d => d.value > 0);
