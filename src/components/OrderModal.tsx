@@ -243,32 +243,62 @@ const ORDER_PRINT_CSS = `
 `;
 
 
-/** Identificacao da loja no documento impresso. CNPJ e e-mail sao os mesmos que
- *  a cotacao usa (ver STORE_INFO em QuoteModal) — mantidos aqui em paralelo por
- *  ora; se um terceiro lugar precisar, vale extrair para storeConfig. */
-const OP_LOJA: Record<string, { logo: string; cnpj: string; rodape: string }> = {
+/** Identificacao da loja no documento impresso.
+ *
+ *  O rodape era UMA STRING FIXA por loja, com "Fone/Fax +55 81 3228.8509" e o
+ *  e-mail da empresa. Resultado: toda OS saia com o mesmo telefone e o mesmo
+ *  e-mail, tivesse sido feita pelo Alcides, pelo Lucas ou pelo Pedro — o
+ *  cliente ligava para um numero generico em vez de falar com quem atendeu.
+ *  E o mesmo defeito que a cotacao tinha, so que aqui nem cartao existia.
+ *
+ *  Agora a linha e montada: CNPJ e endereco vem da loja, telefone e e-mail vem
+ *  do VENDEDOR que assinou. Por isso `rodape` virou `endereco` — a parte fixa. */
+const ENDERECO_GRUPO_OS =
+  'Rua Marechal Deodoro Nr 300 SL 1107, Encruzilhada Recife, PE · CEP 52030-172';
+
+const OP_LOJA: Record<string, { logo: string; cnpj: string; endereco: string; email: string }> = {
   'Lucky Store': {
     logo: '/quote-header.png',
     cnpj: '11.849.935/0001-63',
-    rodape: 'CNPJ 11.849.935/0001-63 · Rua Marechal Deodoro Nr 300 SL 1107, Encruzilhada Recife, PE · CEP 52030-172 · Fone/Fax +55 81 3228.8509 · contato@luckystore.com.br',
+    endereco: ENDERECO_GRUPO_OS,
+    // Usado so quando o vendedor da OS nao tem cadastro com contato: melhor um
+    // e-mail da empresa do que um documento sem nenhuma forma de contato.
+    email: 'contato@luckystore.com.br',
   },
   'BTech': {
     logo: '/btech-header.jpeg',
     cnpj: '54.677.704/0001-22',
-    rodape: 'CNPJ 54.677.704/0001-22 · Rua Marechal Deodoro Nr 300 SL 1107, Encruzilhada Recife, PE · CEP 52030-172 · Fone/Fax +55 81 3228.8509 · btechstore@outlook.com.br',
+    endereco: ENDERECO_GRUPO_OS,
+    email: 'btechstore@outlook.com.br',
   },
   'AJJ': {
     logo: '/quote-header.png',
     cnpj: '11.849.935/0001-63',
-    rodape: 'CNPJ 11.849.935/0001-63 · Rua Marechal Deodoro Nr 300 SL 1107, Encruzilhada Recife, PE · CEP 52030-172 · Fone/Fax +55 81 3228.8509 · contato@luckystore.com.br',
+    endereco: ENDERECO_GRUPO_OS,
+    email: 'contato@luckystore.com.br',
   },
 };
 
+/** A linha do pe da OS: identificacao da empresa + contato de quem assinou. */
+function rodapeDaOS(
+  loja: { cnpj: string; endereco: string; email: string },
+  vendedor?: { nome: string; email: string | null; phone: string | null },
+): string {
+  return [
+    `CNPJ ${loja.cnpj}`,
+    loja.endereco,
+    vendedor?.phone,
+    vendedor?.email || loja.email,
+  ].filter(Boolean).join(' · ');
+}
+
 /** Ordem de servico em papel: documento, nao captura da tela. */
-function OrderPrintTemplate({ form, valores }: {
+function OrderPrintTemplate({ form, valores, vendedor }: {
   /** O estado do modal e Partial<Order> — todo campo pode estar vazio enquanto
    *  o pedido esta sendo preenchido, e o papel tem que aguentar isso. */
   form: Partial<Order>;
+  /** Cadastro do vendedor da OS — de onde saem o telefone e o e-mail do pe. */
+  vendedor?: { nome: string; email: string | null; phone: string | null };
   valores: {
     custoInicial: number; custoFinal: number; freteTotal: number;
     creditoValor: number; debitoValor: number; impCompraValor: number; impVendaValor: number;
@@ -485,7 +515,7 @@ function OrderPrintTemplate({ form, valores }: {
         <div>Separado por</div><div>Conferido por</div><div>Data</div>
       </div>
 
-      <div className="op-foot">{loja.rodape}</div>
+      <div className="op-foot">{rodapeDaOS(loja, vendedor)}</div>
     </div>
   );
 }
@@ -513,13 +543,21 @@ export function OrderModal({ open, onClose, order, onSave, nextOS, prefill }: Pr
   // Mesmo motivo do QuoteModal: /vendedores traz todas as lojas e o mesmo nome
   // se repete entre elas, entao casar so pelo nome gravava o pedido no cadastro
   // do vendedor de outra empresa. Procura dentro da loja escolhida primeiro.
-  const vendorIdByName = (nome: string, empresa?: string) => {
+  const vendedorPorNome = (nome: string, empresa?: string) => {
     const idLoja = empresa ? LOJA_IDS[empresa] : undefined;
     const naLoja = idLoja
       ? vendedores.find(v => v.nome === nome && v.id_loja === idLoja)
       : undefined;
-    return (naLoja ?? vendedores.find(v => v.nome === nome))?.id ?? VENDEDOR_IDS[nome] ?? '';
+    return naLoja ?? vendedores.find(v => v.nome === nome);
   };
+  const vendorIdByName = (nome: string, empresa?: string) =>
+    vendedorPorNome(nome, empresa)?.id ?? VENDEDOR_IDS[nome] ?? '';
+
+  /** Quem assinou esta OS — o pé do documento traz o telefone e o e-mail dele.
+   *
+   *  Resolve pelo NOME porque o pedido não guarda o id do vendedor (a cotação
+   *  guarda; o pedido não). Com um cadastro por pessoa isso é suficiente. */
+  const vendedorDaOS = vendedorPorNome(form.seller ?? '', form.company as string | undefined);
 
   const { mutate: createOrder, isPending: isCreating } = useCreateOrder();
   const { mutate: updateOrder, isPending: isUpdating } = useUpdateOrder(order?.id ?? '');
@@ -1665,7 +1703,7 @@ export function OrderModal({ open, onClose, order, onSave, nextOS, prefill }: Pr
       {open && printRootRef.current && createPortal(
         <>
           <style>{ORDER_PRINT_CSS}</style>
-          <OrderPrintTemplate form={form} valores={valoresImpressao} />
+          <OrderPrintTemplate form={form} valores={valoresImpressao} vendedor={vendedorDaOS} />
         </>,
         printRootRef.current,
       )}
