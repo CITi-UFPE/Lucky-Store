@@ -127,6 +127,15 @@ export interface OrderItem {
   projectedValue: number;
   /** Aggregated from subPurchases (sum). Kept on item for backwards-compat & quick reads. */
   purchaseValue: number;
+  /**
+   * Por quanto o cliente compra este item (unitário). É o que sai na coluna
+   * "Valor de venda" do documento da OS.
+   *
+   * Não confundir com `projectedValue`, que é o CUSTO projetado — era ele que
+   * a coluna lia antes, e por isso o papel mostrava custo no lugar de venda, e
+   * zero quando a cotação só tinha o preço do cliente preenchido.
+   */
+  saleValue?: number;
   /** Optional product-level delivery date (ISO yyyy-mm-dd) — latest among sub-purchases. */
   productDeliveryDate?: string;
   /** Sub-purchasing breakdown: multiple supplier purchases fulfilling the total quantity. */

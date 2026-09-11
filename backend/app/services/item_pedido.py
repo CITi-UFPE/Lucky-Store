@@ -51,6 +51,9 @@ class ItemPedidoService:
             quantidade=data.quantidade,
             valor_projetado=data.valor_projetado,
             valor_compra=data.valor_compra,
+            # Quanto o cliente paga por este item. Campo proprio desde que se
+            # descobriu que o preco de venda sumia ao comprar o item.
+            valor_venda=data.valor_venda,
             # Em itens de fornecimento direto, valor_compra guarda o valor de VENDA
             # e preco_custo guarda o custo pago ao fornecedor.
             preco_custo=data.preco_custo,

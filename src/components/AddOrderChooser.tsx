@@ -11,7 +11,8 @@ import { ArrowLeft, Search, ChevronRight, FilePlus, FileText } from 'lucide-reac
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Quote, QUOTE_PHASE_LABELS, QUOTE_PHASE_COLORS } from '@/store/QuoteStore';
-import type { DirectSupplyOrderItem } from '@/store/OrderStore';
+import type { DirectSupplyOrderItem, Order } from '@/store/OrderStore';
+import { useVendedores } from '@/hooks/useVendedores';
 import { apiClient } from '@/api/client';
 import { LOJA_IDS, VENDEDOR_IDS } from '@/api/storeConfig';
 import type { CotacaoResponse, PaginatedResponse } from '@/types/api';
@@ -41,6 +42,9 @@ function getCotacaoPhase(c: CotacaoResponse) {
 export interface OrderPrefill {
   /** Cotação de origem, quando o pedido é criado a partir de uma cotação */
   sourceQuoteId?: string;
+  sourceQuoteNumber?: Order['sourceQuoteNumber'];
+  quoteTerms?: Order['quoteTerms'];
+  observations?: string;
   /** A EMPRESA. */
   customer: string;
   customerCompany?: string;
@@ -51,7 +55,11 @@ export interface OrderPrefill {
   seller: Quote['seller'];
   salesValue: number;
   directBilling: boolean;
-  items: { id: string; name: string; quantity: number; projectedValue: number }[];
+  /** `saleValue` é o preço do cliente (o `valor_fechamento` da cotação), e
+   *  `projectedValue` é o custo. Sem levar o primeiro daqui, a OS criada por
+   *  esta tela nascia sem preço de venda nenhum e o documento saía com
+   *  travessão na coluna — mesmo buraco que a conversão no backend tinha. */
+  items: { id: string; name: string; quantity: number; projectedValue: number; saleValue?: number }[];
   directSupplyItems: DirectSupplyOrderItem[];
 }
 
@@ -66,6 +74,7 @@ interface Props {
 type Step = 'choose' | 'pick-quote' | 'pick-items';
 
 export function AddOrderChooser({ open, onClose, onChooseNew, onChooseFromQuote }: Props) {
+  const { data: vendedoresData } = useVendedores();
   const [step, setStep] = useState<Step>('choose');
   const [search, setSearch] = useState('');
   const [picked, setPicked] = useState<CotacaoResponse | null>(null);
@@ -133,14 +142,23 @@ export function AddOrderChooser({ open, onClose, onChooseNew, onChooseFromQuote 
     const hasDirect = picked.itens?.some(i => i.is_direct_supply) ?? false;
     const prefill: OrderPrefill = {
       sourceQuoteId: picked.id,
+      sourceQuoteNumber: picked.numero,
+      quoteTerms: {
+        deliveryForecast: picked.previsao_entrega,
+        paymentMethod: picked.forma_pagamento,
+        paymentDetails: picked.detalhes_pagamento,
+        warranty: picked.garantia,
+      },
+      observations: picked.observacao ?? '',
       // Empresa e pessoa vao separadas. Antes eram fundidas aqui — escolhia a
       // empresa se existisse, senao o contato — e o pedido nascia sem saber
       // qual das duas coisas tinha recebido.
       customer: (picked.b2b_company?.trim()) ? picked.b2b_company : picked.cliente,
-      customerContact: (picked.b2b_company?.trim()) ? (picked.cliente ?? '') : '',
+      customerContact: picked.cliente ?? '',
       cnpj: picked.cnpj_cliente ?? '',
       company: (LOJA_BY_ID[picked.id_loja] ?? '') as Quote['company'],
-      seller: (VENDEDOR_BY_ID[picked.id_vendedor] ?? '') as Quote['seller'],
+      seller: (vendedoresData?.items.find(v => v.id === picked.id_vendedor)?.nome
+        ?? VENDEDOR_BY_ID[picked.id_vendedor] ?? '') as Quote['seller'],
       salesValue: parseFloat(picked.valor_total ?? '0') || 0,
       directBilling: hasDirect,
       items: regularItems.map(i => ({
@@ -148,6 +166,7 @@ export function AddOrderChooser({ open, onClose, onChooseNew, onChooseFromQuote 
         name: i.descricao,
         quantity: i.quantidade,
         projectedValue: parseFloat(i.valor_unitario) || 0,
+        saleValue: i.valor_fechamento != null ? (parseFloat(i.valor_fechamento) || 0) : undefined,
       })),
       directSupplyItems: dsItems.map(i => {
         const closingVal = i.valor_fechamento ? (parseFloat(i.valor_fechamento) || 0) : (parseFloat(i.valor_unitario) || 0);

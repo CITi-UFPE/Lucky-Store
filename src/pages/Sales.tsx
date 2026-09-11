@@ -282,7 +282,7 @@ export function pedidoListToOrder(item: PedidoListItem): Order {
     purchaseTaxValue:   parseFloat(item.custo?.imposto_compra         ?? '0') || 0,
     salesTaxPercent:    parseFloat(item.custo?.pct_imposto_venda      ?? '0') || 0,
     salesTaxValue:      parseFloat(item.custo?.imposto_venda          ?? '0') || 0,
-    salesValue: item.valor_venda ?? 0,
+    salesValue: Number(item.valor_venda) || 0,
     refundTotal: parseFloat(String(item.valor_total_estornado ?? '0')) || 0,
     items: (item.produtos ?? []).filter(p => !p.is_direct_supply).map(p => ({
       id: p.id,
@@ -292,6 +292,7 @@ export function pedidoListToOrder(item: PedidoListItem): Order {
       status: p.status as ItemStatus,
       projectedValue: parseFloat(String(p.valor_projetado)) || 0,
       purchaseValue: parseFloat(String(p.valor_compra ?? '0')) || 0,
+      saleValue: p.valor_venda != null ? parseFloat(String(p.valor_venda)) : undefined,
     })),
     directSupplyItems: (item.produtos ?? []).filter(p => p.is_direct_supply).map(p => ({
       id: p.id,

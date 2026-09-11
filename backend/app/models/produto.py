@@ -27,6 +27,14 @@ class Produto(Base):
     valor_projetado = Column(Numeric(12, 2), nullable=False)
     preco_custo = Column(Numeric(12, 2), nullable=True)
     valor_compra = Column(Numeric(12, 2), nullable=True)
+    # Por quanto o item foi VENDIDO — preco unitario, como na cotacao.
+    #
+    # Existe porque nao havia onde guardar isso. A coluna "Valor de venda" do
+    # documento da OS lia `valor_projetado`, que e o CUSTO projetado, e o preco
+    # do cliente ficava emprestado em `valor_compra` ate o item ser comprado —
+    # quando aquele campo era sobrescrito pelo valor pago ao fornecedor e o
+    # preco de venda sumia sem deixar rastro.
+    valor_venda = Column(Numeric(12, 2), nullable=True)
     economia = Column(Numeric(12, 2), nullable=True)
 
     sub_compras = Column(JSONB, nullable=True)

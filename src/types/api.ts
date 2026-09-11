@@ -209,6 +209,10 @@ export interface ProdutoApiItem {
   valor_projetado: string;
   preco_custo: string | null;
   valor_compra: string | null;
+  /** Por quanto o item foi VENDIDO (unitário). Campo próprio desde que se
+   *  descobriu que o preço de venda ficava emprestado em `valor_compra` e
+   *  sumia quando o item era comprado. */
+  valor_venda: string | null;
   status: string;
   prazo_entrega: string | null;
   data_compra: string | null;

@@ -16,15 +16,26 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
+    # ATENCAO: existe uma SEGUNDA migration que adiciona esta mesma coluna,
+    # b1c2d3e4f5a6, no outro ramo que sai de e1f2a3b4c5d6. As duas fazem a
+    # mesma coisa e as duas rodam, porque os ramos se juntam adiante. Quem
+    # rodasse por ultimo estourava com DuplicateColumn e parava a migracao
+    # inteira no meio — foi o que aconteceu num banco que estava em
+    # e1f2a3b4c5d6. Por isso aqui e tudo idempotente: se a coluna ja existe,
+    # esta migration nao faz nada e deixa passar.
     op.execute("CREATE SEQUENCE IF NOT EXISTS cotacao_numero_seq")
-    op.add_column('cotacoes', sa.Column('numero', sa.Integer(), nullable=True))
-    # Backfill: numera as cotações existentes por ordem de criação (1, 2, 3, ...)
+    op.execute("ALTER TABLE cotacoes ADD COLUMN IF NOT EXISTS numero INTEGER")
+    # Backfill so do que esta sem numero, continuando do maximo atual. Numerar
+    # tudo de novo renumeraria cotacoes que o outro ramo ja numerou, e o numero
+    # da cotacao aparece em documento que foi para o cliente.
     op.execute("""
         WITH ordered AS (
             SELECT id, ROW_NUMBER() OVER (ORDER BY created_at, id) AS rn
-            FROM cotacoes
+            FROM cotacoes WHERE numero IS NULL
         )
-        UPDATE cotacoes c SET numero = o.rn FROM ordered o WHERE c.id = o.id
+        UPDATE cotacoes c
+        SET numero = o.rn + COALESCE((SELECT MAX(numero) FROM cotacoes), 0)
+        FROM ordered o WHERE c.id = o.id
     """)
     # Avança a sequence para o próximo número disponível
     op.execute(
@@ -34,5 +45,6 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.drop_column('cotacoes', 'numero')
+    # Idem: a outra migration do mesmo par ja pode ter derrubado a coluna.
+    op.execute("ALTER TABLE cotacoes DROP COLUMN IF EXISTS numero")
     op.execute("DROP SEQUENCE IF EXISTS cotacao_numero_seq")

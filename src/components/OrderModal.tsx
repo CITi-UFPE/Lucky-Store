@@ -414,7 +414,7 @@ function OrderPrintTemplate({ form, valores, vendedor }: {
                     <td className="c">{item.quantity || 0}</td>
                     <td>{fornecedor}</td>
                     <td className="r">{calcItemFinalValue(item) ? toBRL(calcItemFinalValue(item)) : '—'}</td>
-                    <td className="r">{toBRL((item.projectedValue || 0) * (item.quantity || 0))}</td>
+                    <td className="r">{item.saleValue != null ? toBRL(item.saleValue * (item.quantity || 0)) : '—'}</td>
                   </tr>
                   {subs.length > 1 && subs.map((sc, k) => (
                     <tr key={sc.id} className={`op-sub${k === subs.length - 1 ? ' op-sub-fim' : ''}`}>
@@ -438,7 +438,7 @@ function OrderPrintTemplate({ form, valores, vendedor }: {
                   documento tem que fechar com o que esta na folha. */}
               <td colSpan={4} className="r">Totais</td>
               <td className="r">{toBRL(itens.reduce((s, i) => s + calcItemFinalValue(i), 0))}</td>
-              <td className="r">{toBRL(itens.reduce((s, i) => s + (i.projectedValue || 0) * (i.quantity || 0), 0))}</td>
+              <td className="r">{toBRL(itens.reduce((s, i) => s + (i.saleValue || 0) * (i.quantity || 0), 0))}</td>
             </tr>
           </tfoot>
         </table>
@@ -594,6 +594,9 @@ export function OrderModal({ open, onClose, order, onSave, nextOS, prefill }: Pr
         customer: prefill.customer,
         customerCompany: prefill.customerCompany || '',
         customerContact: prefill.customerContact || '',
+        sourceQuoteNumber: prefill.sourceQuoteNumber,
+        quoteTerms: prefill.quoteTerms,
+        observations: prefill.observations || '',
         cnpj: prefill.cnpj,
         company: prefill.company,
         seller: prefill.seller,
@@ -602,6 +605,9 @@ export function OrderModal({ open, onClose, order, onSave, nextOS, prefill }: Pr
         items: prefill.items.map(i => ({
           id: i.id, name: i.name, quantity: i.quantity, status: 'To Buy' as ItemStatus,
           projectedValue: i.projectedValue, purchaseValue: 0,
+          // O preço do cliente vem da cotação. Ficava para trás aqui, e a OS
+          // nascia sem ele — o documento saía com travessão na coluna de venda.
+          saleValue: i.saleValue,
         })),
         directSupplyItems: (prefill.directSupplyItems || []).map(i => ({ ...i })),
       });
@@ -762,6 +768,10 @@ export function OrderModal({ open, onClose, order, onSave, nextOS, prefill }: Pr
       createdAt: form.createdAt || Date.now(),
       orderDate: form.orderDate || '',
       customer: form.customer || '',
+      customerCompany: form.customerCompany,
+      customerContact: form.customerContact || '',
+      sourceQuoteNumber: form.sourceQuoteNumber,
+      quoteTerms: form.quoteTerms,
       cnpj: form.cnpj || '',
       company: (form.company || '') as Company,
       seller: (form.seller || '') as Seller,
@@ -833,6 +843,7 @@ export function OrderModal({ open, onClose, order, onSave, nextOS, prefill }: Pr
 
     if (isEdit) {
       const payload: UpdatePedidoPayload = {
+        contato_cliente: (o.customerContact || '').trim(),
         data_pedido: o.orderDate,
         data_entrega: o.deliveryDate,
         valor_venda: String(o.salesValue),
@@ -885,8 +896,14 @@ export function OrderModal({ open, onClose, order, onSave, nextOS, prefill }: Pr
       });
       const toUpdateValues = o.items.filter(i => {
         const orig = origItems.find(orig => orig.id === i.id);
+        // `saleValue` entra aqui pelo mesmo motivo que os outros tres: sem
+        // comparar o campo, editar SO o valor de venda nao dispara PUT nenhum —
+        // a tela mostra o numero novo, o salvamento responde com sucesso e o
+        // banco continua com o antigo. E o defeito da troca de empresa outra
+        // vez, num campo diferente.
         return orig && (orig.quantity !== i.quantity
-          || orig.projectedValue !== i.projectedValue || orig.purchaseValue !== i.purchaseValue);
+          || orig.projectedValue !== i.projectedValue || orig.purchaseValue !== i.purchaseValue
+          || orig.saleValue !== i.saleValue);
       });
 
       // ── DS item diff ────────────────────────────────────────────────────────
@@ -924,6 +941,7 @@ export function OrderModal({ open, onClose, order, onSave, nextOS, prefill }: Pr
             descricao: item.name || 'Item',
             quantidade: item.quantity || 1,
             valor_projetado: Math.max(0.01, item.projectedValue),
+            valor_venda: item.saleValue != null ? item.saleValue : undefined,
             valor_compra: item.purchaseValue > 0 ? item.purchaseValue : undefined,
             status: item.status,
           })),
@@ -935,6 +953,7 @@ export function OrderModal({ open, onClose, order, onSave, nextOS, prefill }: Pr
             apiClient.put(`/pedidos/${pedidoId}/items/${item.id}`, {
               quantidade: item.quantity || 1,
               valor_projetado: Math.max(0.01, item.projectedValue),
+              valor_venda: item.saleValue != null ? item.saleValue : undefined,
               valor_compra: item.purchaseValue > 0 ? item.purchaseValue : undefined,
             })
           ),
@@ -1020,6 +1039,7 @@ export function OrderModal({ open, onClose, order, onSave, nextOS, prefill }: Pr
                     descricao: item.name || 'Item',
                     quantidade: item.quantity || 1,
                     valor_projetado: Math.max(0.01, item.projectedValue),
+                    valor_venda: item.saleValue != null ? item.saleValue : undefined,
                     valor_compra: item.purchaseValue > 0 ? item.purchaseValue : undefined,
                     status: item.status,
                   }).then(r => r.data)
@@ -1446,9 +1466,10 @@ export function OrderModal({ open, onClose, order, onSave, nextOS, prefill }: Pr
             {(form.items || []).map(item => {
               const itEditing = (field: string) => editingDsField?.id === item.id && editingDsField?.field === field;
               const itFocus = (field: string, raw: number) => { setEditingDsField({ id: item.id, field }); setEditingDsValue(raw ? String(raw) : ''); };
-              const itBlurBRL = (field: 'projectedValue' | 'purchaseValue') => { updateItem(item.id, field, parseBRL(editingDsValue) || parseFloat(editingDsValue) || 0); setEditingDsField(null); };
+              const itBlurBRL = (field: 'projectedValue' | 'purchaseValue' | 'saleValue') => { updateItem(item.id, field, parseBRL(editingDsValue) || parseFloat(editingDsValue) || 0); setEditingDsField(null); };
               return (
-                <div key={item.id} className="grid grid-cols-12 gap-2 items-center border border-[#E2E8F1] rounded-lg p-2 bg-[#F8FAFD]">
+                <div key={item.id} className="grid gap-2 items-center border border-[#E2E8F1] rounded-lg p-2 bg-[#F8FAFD]"
+                  style={{ gridTemplateColumns: 'repeat(14, minmax(0, 1fr))' }}>
                   <Input placeholder="Nome do Item" className="col-span-4 bg-[#FBFCFE] border-[#E2E8F1]"
                     value={item.name} onChange={e => updateItem(item.id, 'name', e.target.value)} onKeyDown={handleEnterBlur} />
                   <Input type="number" min="1" placeholder="Qtd" className="col-span-1 bg-[#FBFCFE] border-[#E2E8F1]"
@@ -1488,6 +1509,18 @@ export function OrderModal({ open, onClose, order, onSave, nextOS, prefill }: Pr
                         onChange={e => setEditingDsValue(e.target.value)} onKeyDown={handleEnterBlur} />
                     )}
                     <span className="text-[10px] text-muted-foreground">Val. Compra</span>
+                  </div>
+                  {/* Quanto o cliente paga por este item. Sai na coluna "Valor de
+                      venda" do documento da OS. Vem preenchido da cotação de
+                      origem; num pedido criado do zero, é aqui que se informa —
+                      antes não havia onde, e o papel saía zerado. */}
+                  <div className="col-span-2">
+                    <Input placeholder="Valor de Venda R$" className="bg-[#FBFCFE] border-[#E2E8F1]"
+                      value={itEditing('saleValue') ? editingDsValue : (item.saleValue ? toBRL(item.saleValue) : '')}
+                      onFocus={() => itFocus('saleValue', item.saleValue || 0)}
+                      onBlur={() => itBlurBRL('saleValue')}
+                      onChange={e => setEditingDsValue(e.target.value)} onKeyDown={handleEnterBlur} />
+                    <span className="text-[10px] text-muted-foreground">Val. Venda</span>
                   </div>
                   <Button variant="ghost" size="icon" className="col-span-1" onClick={() => removeItem(item.id)}>
                     <Trash2 className="h-4 w-4 text-destructive" />
@@ -2043,4 +2076,3 @@ function PagamentoSection({ form, set }: { form: Partial<Order>; set: (k: keyof 
     </section>
   );
 }
-

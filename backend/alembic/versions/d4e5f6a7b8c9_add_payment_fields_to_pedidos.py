@@ -17,18 +17,23 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    op.add_column('pedidos', sa.Column('data_pagamento', sa.Date(), nullable=True))
-    op.add_column('pedidos', sa.Column('multa', sa.Numeric(12, 2), nullable=True))
-    op.add_column('pedidos', sa.Column('juros', sa.Numeric(12, 2), nullable=True))
-    op.add_column('pedidos', sa.Column('forma_pagamento_efetiva', sa.String(50), nullable=True))
-    op.add_column('pedidos', sa.Column('num_parcelas_efetivas', sa.Integer(), nullable=True))
-    op.add_column('pedidos', sa.Column('plano_parcelas', JSONB(), nullable=True))
+    # Este e o ramo VIVO dos campos de pagamento: sao estes nomes que
+    # app/models/pedido.py usa. O outro, c1d2e3f4a5b6, faz a mesma coisa com
+    # nomes diferentes e tambem roda, porque os ramos se juntam adiante.
+    # `data_pagamento` e `plano_parcelas` aparecem nos dois — quem rodasse por
+    # ultimo estourava com DuplicateColumn e parava a migracao no meio.
+    op.execute("ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS data_pagamento DATE")
+    op.execute("ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS multa NUMERIC(12, 2)")
+    op.execute("ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS juros NUMERIC(12, 2)")
+    op.execute("ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS forma_pagamento_efetiva VARCHAR(50)")
+    op.execute("ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS num_parcelas_efetivas INTEGER")
+    op.execute("ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS plano_parcelas JSONB")
 
 
 def downgrade() -> None:
-    op.drop_column('pedidos', 'plano_parcelas')
-    op.drop_column('pedidos', 'num_parcelas_efetivas')
-    op.drop_column('pedidos', 'forma_pagamento_efetiva')
-    op.drop_column('pedidos', 'juros')
-    op.drop_column('pedidos', 'multa')
-    op.drop_column('pedidos', 'data_pagamento')
+    op.execute("ALTER TABLE pedidos DROP COLUMN IF EXISTS plano_parcelas")
+    op.execute("ALTER TABLE pedidos DROP COLUMN IF EXISTS num_parcelas_efetivas")
+    op.execute("ALTER TABLE pedidos DROP COLUMN IF EXISTS forma_pagamento_efetiva")
+    op.execute("ALTER TABLE pedidos DROP COLUMN IF EXISTS juros")
+    op.execute("ALTER TABLE pedidos DROP COLUMN IF EXISTS multa")
+    op.execute("ALTER TABLE pedidos DROP COLUMN IF EXISTS data_pagamento")

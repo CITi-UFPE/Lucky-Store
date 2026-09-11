@@ -89,8 +89,21 @@ class ConversaoCotacaoService:
                 id_vendedor=cotacao.id_vendedor,
                 descricao=item.descricao,
                 quantidade=item.quantidade,
+                # O custo projetado e o custo da cotacao; o preco do cliente
+                # vai para valor_venda, que e o campo dele.
                 valor_projetado=item.valor_unitario,
-                valor_compra=item.valor_fechamento,
+                valor_venda=item.valor_fechamento,
+                # Item normal: valor_compra fica VAZIO, porque nada foi comprado
+                # ainda. Ele recebia `valor_fechamento`, o preco do cliente, e
+                # era isso que fazia a coluna "Valor de compra" do documento
+                # mostrar o preco de venda — ate o item ser comprado, quando o
+                # campo era sobrescrito e o preco de venda se perdia.
+                #
+                # Fornecimento direto e a excecao, e ela e antiga: ali
+                # valor_compra guarda o valor de VENDA por convencao (ver
+                # item_pedido.add_item) e e dele que saem a margem e o custo do
+                # fornecedor. Esvaziar zeraria essas contas.
+                valor_compra=item.valor_fechamento if item.is_direct_supply else None,
                 fornecedor=item.fornecedor,
                 is_direct_supply=item.is_direct_supply,
                 porcentagem_fornecedor=item.porcentagem_fornecedor,

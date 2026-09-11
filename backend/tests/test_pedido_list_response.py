@@ -32,6 +32,10 @@ def _make_produto_response(**overrides):
         valor_projetado=Decimal("3000.00"),
         preco_custo=None,
         valor_compra=None,
+        # Quanto o cliente paga por este item. Campo obrigatorio na resposta
+        # desde que se descobriu que o preco de venda ficava emprestado em
+        # valor_compra e sumia quando o item era comprado.
+        valor_venda=None,
         economia=None,
         sub_compras=None,
         fornecedor=None,

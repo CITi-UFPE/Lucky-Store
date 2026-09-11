@@ -24,6 +24,8 @@ def _produto_response(pedido_id=None, status="Pending"):
         valor_projetado=Decimal("100.00"),
         preco_custo=None,
         valor_compra=None,
+        # Quanto o cliente paga por este item — ver app/schemas/produto.py.
+        valor_venda=None,
         economia=None,
         fornecedor=None,
         data_compra=None,

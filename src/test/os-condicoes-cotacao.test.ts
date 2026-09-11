@@ -123,7 +123,14 @@ describe('tabela de itens da OS', () => {
     // Antes o rodape usava valores.custoInicial/custoFinal, que incluem os
     // itens de fornecimento direto — que esta tabela nao imprime. O total nao
     // fechava com a folha.
+    //
+    // A segunda soma mudou de `projectedValue` para `saleValue`: a coluna
+    // "Valor de venda" lia o CUSTO projetado, que na maioria das cotacoes vem
+    // zerado, e por isso a coluna inteira saia em R$ 0,00. Quem vigia esse
+    // comportamento agora e os-valor-de-venda.test.tsx, que le o numero
+    // impresso em vez do codigo; aqui fica so a garantia de que o total sai das
+    // MESMAS linhas da folha.
     expect(fonte).toContain('itens.reduce((s, i) => s + calcItemFinalValue(i), 0)');
-    expect(fonte).toContain("itens.reduce((s, i) => s + (i.projectedValue || 0) * (i.quantity || 0), 0)");
+    expect(fonte).toContain("itens.reduce((s, i) => s + (i.saleValue || 0) * (i.quantity || 0), 0)");
   });
 });
