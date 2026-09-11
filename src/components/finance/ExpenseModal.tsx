@@ -276,7 +276,7 @@ export function ExpenseModal({ open, onClose, expense, onSave, onDelete, onEndRe
                 <>
                   "{e.service || e.kind}" se repete todo mês. Excluir remove
                   <strong> todas as repetições ainda não pagas</strong>, e não só
-                  este mês — os meses já pagos ficam, porque o dinheiro saiu.
+                  este mês. Os meses já pagos ficam, porque o dinheiro saiu.
                 </>
               ) : (
                 <>Esta ação removerá permanentemente a despesa "{e.service || e.kind}".</>

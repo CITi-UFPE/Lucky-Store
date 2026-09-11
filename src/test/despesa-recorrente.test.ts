@@ -72,7 +72,7 @@ describe('excluir uma recorrente', () => {
   it('avisa que leva todas as repetições não pagas', () => {
     // Sem o aviso, quem clica espera perder um mês e perde o ano inteiro.
     expect(modal).toContain('todas as repetições ainda não pagas');
-    expect(modal).toContain('os meses já pagos ficam');
+    expect(modal).toContain('Os meses já pagos ficam');
   });
 
   it('a despesa comum continua com o aviso simples', () => {
