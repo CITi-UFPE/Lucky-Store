@@ -1,3 +1,4 @@
+import type { QueryObserverOptions } from '@tanstack/react-query';
 import { renderHook, waitFor } from '@testing-library/react'
 import { createElement } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -102,7 +103,7 @@ describe('useDashboardKpis', () => {
     const query = qc.getQueryCache().find({
       queryKey: ['dashboard', 'kpis', baseParams],
     })
-    expect(query?.options.staleTime).toBe(30_000)
+    expect((query?.options as QueryObserverOptions | undefined)?.staleTime).toBe(30_000)
   })
 })
 
@@ -147,7 +148,7 @@ describe('useDashboardProjections', () => {
     const query = qc.getQueryCache().find({
       queryKey: ['dashboard', 'projections', baseParams],
     })
-    expect(query?.options.staleTime).toBe(30_000)
+    expect((query?.options as QueryObserverOptions | undefined)?.staleTime).toBe(30_000)
   })
 })
 
@@ -199,7 +200,7 @@ describe('useDashboardBreakdownByCompany', () => {
     const query = qc.getQueryCache().find({
       queryKey: ['dashboard', 'breakdown-company', baseParams],
     })
-    expect(query?.options.staleTime).toBe(60_000)
+    expect((query?.options as QueryObserverOptions | undefined)?.staleTime).toBe(60_000)
   })
 })
 
@@ -253,6 +254,6 @@ describe('useDashboardBreakdownBySeller', () => {
     const query = qc.getQueryCache().find({
       queryKey: ['dashboard', 'breakdown-seller', baseParams],
     })
-    expect(query?.options.staleTime).toBe(60_000)
+    expect((query?.options as QueryObserverOptions | undefined)?.staleTime).toBe(60_000)
   })
 })

@@ -18,7 +18,7 @@ describe('useOrdersQuery', () => {
   })
 
   it('initializes with isLoading true and no data before fetch resolves', () => {
-    vi.spyOn(global, 'fetch').mockReturnValue(new Promise(() => {}))
+    vi.spyOn(apiClient, 'request').mockReturnValue(new Promise(() => {}))
     const { result } = renderHook(
       () => useOrdersQuery({ page: 1, limit: 20, sort_by: 'data_pedido', sort_dir: 'desc' }),
       { wrapper: makeWrapper() }
@@ -40,9 +40,7 @@ describe('useOrdersQuery', () => {
   })
 
   it('sets isError on fetch failure', async () => {
-    vi.spyOn(global, 'fetch').mockResolvedValue(
-      new Response(JSON.stringify({ detail: 'Unauthorized' }), { status: 401 })
-    )
+    vi.spyOn(apiClient, 'request').mockRejectedValue({ response: { status: 401, data: { detail: 'Unauthorized' } } })
     const { result } = renderHook(
       () => useOrdersQuery({ page: 1, limit: 20, sort_by: 'data_pedido', sort_dir: 'desc' }),
       { wrapper: makeWrapper() }

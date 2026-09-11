@@ -92,10 +92,11 @@ export function useUpdateQuote(id: string) {
   const qc = useQueryClient();
   return useMutation<CotacaoResponse, Error, UpdateCotacaoPayload>({
     mutationFn: (payload) =>
-      apiClient.put(`/quotes/${id}`, payload).then((r) => r.data),
+      apiClient.put(`/quotes/${id}${payload.itens !== undefined ? '/complete' : ''}`, payload).then((r) => r.data),
     onSuccess: (data) => {
       qc.setQueryData(quoteKeys.detail(id), data);
       qc.invalidateQueries({ queryKey: quoteKeys.lists() });
+      qc.invalidateQueries({ queryKey: quoteKeys.history(id) });
     },
   });
 }

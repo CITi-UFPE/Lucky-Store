@@ -1,3 +1,4 @@
+import { saveChildId } from '@/lib/save-ids';
 import { useState, useEffect, useRef, KeyboardEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -20,7 +21,7 @@ import {
   Quote, QuoteItem, DirectSupplyQuoteItem, QuotePhases, QuotePhaseKey,
   QUOTE_PHASE_COLORS, QUOTE_PHASE_LABELS, emptyPhases,
 } from '@/store/QuoteStore';
-import { useCreateQuote, useUpdateQuote, useUpdateQuotePhase } from '@/api/hooks/useQuotes';
+import { useCreateQuote, useUpdateQuote } from '@/api/hooks/useQuotes';
 import { QuoteStatusTimeline } from '@/components/StatusTimeline';
 import { apiClient, getApiError } from '@/api/client';
 import type { CreateCotacaoPayload, UpdateCotacaoPayload, UpdateCotacaoFasePayload } from '@/types/api';
@@ -542,8 +543,7 @@ export function QuoteModal({ open, onClose, quote, onSave, onDelete, nextIndex }
 
   const { mutate: createQuote, isPending: isCreating } = useCreateQuote();
   const { mutate: updateQuote, isPending: isUpdating } = useUpdateQuote(quote?.id ?? '');
-  const { mutate: updateQuotePhase, isPending: isUpdatingPhase } = useUpdateQuotePhase(quote?.id ?? '');
-  const isPending = isCreating || isUpdating || isUpdatingPhase;
+  const isPending = isCreating || isUpdating;
 
   /* Chave da tentativa de salvar em curso. Nasce no primeiro clique e sobrevive
    * à falha, de propósito: se a cotação foi criada e só a resposta se perdeu, o
@@ -554,6 +554,7 @@ export function QuoteModal({ open, onClose, quote, onSave, onDelete, nextIndex }
    * ponto importa tanto quanto o primeiro: sem ele, uma tentativa que ficou em
    * dúvida contaminaria a cotação SEGUINTE. */
   const chaveTentativa = useRef<string | null>(null);
+  const childIds = useRef(new Map<string, string>());
 
   /** crypto.randomUUID exige contexto seguro (https ou localhost). O fallback é
    * para não ficar sem chave num http de rede interna, onde o valor seria
@@ -578,6 +579,7 @@ export function QuoteModal({ open, onClose, quote, onSave, onDelete, nextIndex }
     }
     setDatePopover(null);
     chaveTentativa.current = null;
+    childIds.current.clear();
   }, [quote, open, nextIndex]);
 
   const set = <K extends keyof Quote>(k: K, v: Quote[K]) => setForm(prev => ({ ...prev, [k]: v }));
@@ -730,39 +732,32 @@ export function QuoteModal({ open, onClose, quote, onSave, onDelete, nextIndex }
       if (lojaIdEdicao) payload.id_loja = lojaIdEdicao;
       if (vendedorIdEdicao) payload.id_vendedor = vendedorIdEdicao;
 
+      const idFor = (id: string) => saveChildId(id, childIds.current, true);
+      payload.itens = [
+        ...(q.items || []).map(i => ({
+          id: idFor(i.id), descricao: i.name, quantidade: i.quantity || 1,
+          valor_unitario: String(i.quoteValue ?? 0),
+          valor_fechamento: i.closingValue != null ? String(i.closingValue) : undefined,
+          fornecedor: i.supplier || '',
+        })),
+        ...(q.directSupplyItems || []).map(i => ({
+          id: idFor(i.id), descricao: i.name, quantidade: i.quantity || 1,
+          valor_unitario: String(i.quoteValue ?? 0),
+          valor_fechamento: i.closingValue != null ? String(i.closingValue) : undefined,
+          fornecedor: i.supplier || '', is_direct_supply: true,
+          porcentagem_fornecedor: String(i.supplierPct || 0),
+          frete_fornecedor: String(i.supplierFreight || 0),
+        })),
+      ];
+      payload.fase = buildPhasePayload(q);
       updateQuote(payload, {
-        onSuccess: async () => {
-          try {
-            const quoteId = quote!.id;
-            const originalItems = [...(quote!.items || []), ...(quote!.directSupplyItems || [])];
-            await Promise.all(originalItems.map(i => apiClient.delete(`/quotes/${quoteId}/items/${i.id}`)));
-            const allNewItems = [
-              ...(q.items || []).map(i => ({
-                descricao: i.name,
-                quantidade: i.quantity || 1,
-                valor_unitario: String(i.quoteValue ?? 0),
-                valor_fechamento: i.closingValue != null ? String(i.closingValue) : undefined,
-                fornecedor: i.supplier || undefined,
-              })),
-              ...(q.directSupplyItems || []).map(i => ({
-                descricao: i.name,
-                quantidade: i.quantity || 1,
-                valor_unitario: String(i.quoteValue ?? 0),
-                valor_fechamento: i.closingValue != null ? String(i.closingValue) : undefined,
-                fornecedor: i.supplier || undefined,
-                is_direct_supply: true,
-                porcentagem_fornecedor: i.supplierPct != null ? String(i.supplierPct) : undefined,
-                frete_fornecedor: i.supplierFreight != null ? String(i.supplierFreight) : undefined,
-              })),
-            ];
-            await Promise.all(allNewItems.map(item => apiClient.post(`/quotes/${quoteId}/items`, item)));
-            updateQuotePhase(buildPhasePayload(q), {
-              onSuccess: () => { toast.success('Cotação atualizada com sucesso'); onSave(q); onClose(); },
-              onError: onApiError,
-            });
-          } catch (err) {
-            onApiError(err);
-          }
+        onSuccess: () => {
+          toast.success('Cotação atualizada com sucesso');
+          onSave({ ...q,
+            items: q.items.map(i => ({ ...i, id: idFor(i.id) })),
+            directSupplyItems: (q.directSupplyItems || []).map(i => ({ ...i, id: idFor(i.id) })),
+          });
+          onClose();
         },
         onError: onApiError,
       });

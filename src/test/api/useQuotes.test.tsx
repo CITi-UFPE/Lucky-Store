@@ -133,3 +133,13 @@ describe('useUpdateQuote', () => {
     expect(mockPut).toHaveBeenCalledWith('/quotes/quote-backend-uuid', { cliente: 'Updated Corp' });
   });
 });
+
+
+it('updates quote items and phases through the complete endpoint', async () => {
+  vi.clearAllMocks();
+  mockPut.mockResolvedValueOnce({ data: mockQuote });
+  const { result } = renderHook(() => useUpdateQuote('quote'), { wrapper: makeWrapper() });
+  const payload = { itens: [], fase: { status_enviada: true } };
+  await act(async () => { await result.current.mutateAsync(payload); });
+  expect(mockPut).toHaveBeenCalledWith('/quotes/quote/complete', payload);
+});

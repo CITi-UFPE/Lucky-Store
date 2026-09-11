@@ -31,6 +31,7 @@ def _fake_item(status: ItemRmaStatus):
     item.descricao = "Teclado com defeito"
     item.quantidade = 1
     item.status = status
+    item.fornecedor = None
     item.consertado_por = None
     item.valor_estornado = None
     item.data_estorno = None
@@ -45,7 +46,7 @@ def _fake_item(status: ItemRmaStatus):
 class TestItemRmaStatusEnum:
 
     def test_has_exactly_10_members(self):
-        assert len(ItemRmaStatus) == 10
+        assert len(ItemRmaStatus) == 11
 
     def test_not_received_value(self):
         assert ItemRmaStatus.NOT_RECEIVED.value == "Not Received"

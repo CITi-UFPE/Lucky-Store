@@ -88,7 +88,7 @@ export function useCreateOrder() {
   return useMutation<PedidoResponse, Error, CreateOrderVars>({
     mutationFn: ({ payload, idempotencyKey }) =>
       apiClient
-        .post('/pedidos', payload, {
+        .post(payload.itens !== undefined ? '/pedidos/complete' : '/pedidos', payload, {
           headers: idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : undefined,
         })
         .then((r) => r.data),
@@ -103,10 +103,11 @@ export function useUpdateOrder(id: string) {
   const qc = useQueryClient();
   return useMutation<PedidoResponse, Error, UpdatePedidoPayload>({
     mutationFn: (payload) =>
-      apiClient.put(`/pedidos/${id}`, payload).then((r) => r.data),
+      apiClient.put(`/pedidos/${id}${payload.itens !== undefined ? '/complete' : ''}`, payload).then((r) => r.data),
     onSuccess: (data) => {
       qc.setQueryData(orderKeys.detail(id), data);
       qc.invalidateQueries({ queryKey: orderKeys.lists() });
+      qc.invalidateQueries({ queryKey: orderKeys.history(id) });
     },
   });
 }

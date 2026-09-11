@@ -101,6 +101,19 @@ def _resolve_period(
 
 # ─── Agregação principal ──────────────────────────────────────────────────────
 
+def _custos_adicionais_sql():
+    # Monetary amounts only: percentages and the initial estimate are not costs.
+    return sum(func.coalesce(column, 0) for column in (
+        CustoPedido.custo_servico, CustoPedido.imposto_compra,
+        CustoPedido.imposto_venda, CustoPedido.custo_credito,
+        CustoPedido.custo_debito, CustoPedido.custo_boleto, CustoPedido.brinde,
+    ))
+
+
+def _custos_pedido_sql():
+    return func.coalesce(CustoPedido.custo_produto_final, 0) + _custos_adicionais_sql()
+
+
 def _aggregate(
     db: Session,
     inicio: date,
@@ -126,6 +139,9 @@ def _aggregate(
             func.coalesce(func.sum(
                 case((PEDIDO_ATIVO, CustoPedido.imposto_venda), else_=0)
             ), 0).label("imposto_venda"),
+            func.coalesce(func.sum(
+                case((PEDIDO_ATIVO, _custos_adicionais_sql()), else_=0)
+            ), 0).label("custo_adicionais"),
             func.count(case((PEDIDO_ATIVO, 1))).label("num_pedidos"),
             func.count(case((PEDIDO_CANCELADO, 1))).label("num_cancelamentos"),
             func.coalesce(func.sum(
@@ -160,10 +176,10 @@ def get_kpis(
 
     receita_bruta = Decimal(str(row.receita or 0))
     custo_produto = Decimal(str(row.custo_produto or 0))
-    custo_servico = Decimal(str(row.custo_servico or 0))
     imposto_compra = Decimal(str(row.imposto_compra or 0))
     imposto_venda = Decimal(str(row.imposto_venda or 0))
-    custo = custo_produto + custo_servico
+    custo_adicionais = Decimal(str(row.custo_adicionais or 0))
+    custo = custo_produto + custo_adicionais
 
     # Estornos (devoluções de RMA) abatem o faturamento no período — por data do estorno
     # (fallback: data de registro do RMA quando o estorno não tem data preenchida)
@@ -181,8 +197,6 @@ def get_kpis(
     estornos = Decimal(str(estornos_q.scalar() or 0))
 
     receita = receita_bruta - estornos
-    lucro = receita - custo
-    margem = (lucro / receita).quantize(Decimal("0.0001")) if receita > 0 else Decimal("0")
     gastos_fixos_q = (
         db.query(func.coalesce(func.sum(
             case(
@@ -217,6 +231,9 @@ def get_kpis(
             .filter(Pedido.id_loja == id_loja)
         )
     custo_frete = Decimal(str(frete_q.scalar() or 0))
+    custo += custo_frete
+    lucro = receita - custo
+    margem = (lucro / receita).quantize(Decimal("0.0001")) if receita > 0 else Decimal("0")
 
     num_pedidos = row.num_pedidos or 0
 
@@ -254,6 +271,8 @@ def get_kpis(
         imposto_venda=imposto_venda,
         outros_custos=outros_custos,
         custo_frete=custo_frete,
+        custo_produtos=custo_produto,
+        custo_adicionais=custo_adicionais,
     )
 
 
@@ -556,7 +575,7 @@ def get_daily_series(
                 ), 0).label("receita"),
                 func.coalesce(func.sum(
                     case((PEDIDO_ATIVO,
-                          CustoPedido.custo_produto_final + CustoPedido.custo_servico), else_=0)
+                          _custos_pedido_sql()), else_=0)
                 ), 0).label("custo"),
                 func.coalesce(func.sum(
                     case((PEDIDO_ATIVO,
@@ -603,8 +622,8 @@ def get_daily_series(
             continue
         gastos_by_day[dia] = gastos_by_day.get(dia, Decimal(0)) + Decimal(str(val or 0))
 
-    # Fretes pelo dia em que foram cadastrados (created_at), opcionalmente restrito por loja
-    frete_dia = func.date(Frete.created_at)
+    # Fretes pela data efetiva, como no indicador de custo total
+    frete_dia = Frete.data_frete
     frete_q = (
         db.query(
             frete_dia.label("dia"),
@@ -646,6 +665,7 @@ def get_daily_series(
         ganhos = Decimal(str(row.ganhos or 0)) if row else Decimal(0)
         gastos_fixos = gastos_by_day.get(current, Decimal(0))
         fretes = fretes_by_day.get(current, Decimal(0))
+        custo += fretes
         items.append(DailySeriesItem(
             data=current.isoformat(),
             faturamento=receita,

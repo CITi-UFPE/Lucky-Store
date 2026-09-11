@@ -83,7 +83,7 @@ describe('excluir uma recorrente', () => {
     // Tirar só o id local deixaria os outros meses na tela até alguém
     // recarregar — parecendo que a exclusão falhou pela metade.
     const trecho = store.slice(store.indexOf('const deleteExpense'));
-    expect(trecho).toContain('recorrente ? recarregar() : undefined');
+    expect(trecho).toContain('if (recurring) await recarregar()');
   });
 });
 
@@ -101,7 +101,7 @@ describe('o caminho dos dados', () => {
   it('salvar uma recorrente recarrega a lista', () => {
     // Os meses seguintes nascem no servidor. Sem isto, o vendedor salva o
     // aluguel recorrente, vê um mês só, e conclui que não funcionou.
-    expect(store).toContain('if (e.recurring) return recarregar();');
+    expect(store).toContain('if (e.recurring) await recarregar()');
   });
 
   it('encerrar recarrega em vez de adivinhar o que sumiu', () => {
@@ -109,6 +109,6 @@ describe('o caminho dos dados', () => {
     // servidor no cliente — e as duas saem de sincronia na primeira mudança.
     const trecho = store.slice(store.indexOf('const endRecurrence'));
     expect(trecho).toContain('encerrar-recorrencia');
-    expect(trecho).toContain('.then(() => recarregar())');
+    expect(trecho).toContain('await recarregar()');
   });
 });

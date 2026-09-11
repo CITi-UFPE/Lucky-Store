@@ -27,10 +27,7 @@ import { createElement } from 'react';
 import { OrderModal } from '@/components/OrderModal';
 import type { Order, OrderItem } from '@/store/OrderStore';
 
-// O salvamento só sincroniza os itens depois que o PUT do pedido volta: é o
-// `onSuccess` que chama `syncItems`. Um mock mudo faria os testes de payload
-// passarem por engano — nenhuma requisição sairia, e não sairia mesmo com o
-// defeito de volta.
+// O modal envia dados e itens na mesma requisição e só fecha no sucesso.
 const { mockUpdateOrder } = vi.hoisted(() => ({
   mockUpdateOrder: vi.fn((_payload: unknown, opts?: { onSuccess?: (d: unknown) => void }) =>
     opts?.onSuccess?.({ id: 'backend-order-uuid', id_vendedor: 'uuid-alcides' })),
@@ -194,7 +191,7 @@ describe('o preço de venda chega ao banco', () => {
     expect(mockUpdateOrder.mock.calls[0][0]).toMatchObject({ contato_cliente: 'Ricardo' });
   });
 
-  it('editar o valor de venda de um item dispara o PUT desse item', async () => {
+  it('editar o valor de venda envia o item junto com o pedido', async () => {
     // Sem comparar `saleValue` no diff de itens, esta edição não gerava
     // requisição nenhuma: a tela mostrava o número novo, o salvamento dizia
     // sucesso, e o banco continuava com o antigo.
@@ -207,10 +204,10 @@ describe('o preço de venda chega ao banco', () => {
     fireEvent.blur(campo);
     fireEvent.click(screen.getByRole('button', { name: /Salvar Alterações/i }));
 
-    await waitFor(() => expect(mockPut).toHaveBeenCalled());
-    const chamada = mockPut.mock.calls.find(c => String(c[0]).includes('/items/'));
-    expect(chamada, 'o item não foi atualizado').toBeDefined();
-    expect((chamada![1] as Record<string, unknown>).valor_venda).toBe(7000);
+    await waitFor(() => expect(mockUpdateOrder).toHaveBeenCalled());
+    const body = mockUpdateOrder.mock.calls[0][0] as { itens: { valor_venda: number }[] };
+    expect(body.itens[0].valor_venda).toBe(7000);
+    expect(mockPut).not.toHaveBeenCalled();
   });
 
   it('item novo nasce com o valor de venda no payload', async () => {
@@ -226,9 +223,41 @@ describe('o preço de venda chega ao banco', () => {
     preencher('Valor de Venda R$', '6480');
     fireEvent.click(screen.getByRole('button', { name: /Salvar Alterações/i }));
 
-    await waitFor(() => expect(mockPost).toHaveBeenCalled());
-    const chamada = mockPost.mock.calls.find(c => String(c[0]).includes('/items'));
-    expect(chamada, 'o item novo não foi criado').toBeDefined();
-    expect((chamada![1] as Record<string, unknown>).valor_venda).toBe(6480);
+    await waitFor(() => expect(mockUpdateOrder).toHaveBeenCalled());
+    const body = mockUpdateOrder.mock.calls[0][0] as { itens: { valor_venda: number }[] };
+    expect(body.itens[0].valor_venda).toBe(6480);
+    expect(mockPost).not.toHaveBeenCalled();
+  });
+});
+
+import { toast } from 'sonner';
+
+describe('salvamento completo da OS', () => {
+  it('envia o nome editado, zeros e parcela unica explicitamente', async () => {
+    abrir([item({ projectedValue: 4100 })]);
+    fireEvent.change(screen.getByPlaceholderText('Nome do Item'), { target: { value: 'Nome corrigido' } });
+    fireEvent.click(screen.getByRole('button', { name: /Salvar Alterações/i }));
+    await waitFor(() => expect(mockUpdateOrder).toHaveBeenCalled());
+    expect(mockUpdateOrder.mock.calls[0][0]).toMatchObject({
+      itens: [expect.objectContaining({ descricao: 'Nome corrigido' })],
+      multa: '0', juros: '0', num_parcelas_efetivas: 1,
+      data_pagamento: null, plano_parcelas: [], plano_parcelas_pedido: [],
+    });
+  });
+
+  it('preserva o formulario e ids para tentar novamente depois de falha', async () => {
+    const onClose = vi.fn();
+    const failure = vi.fn();
+    mockUpdateOrder.mockImplementationOnce((_payload: unknown, opts: any) => opts.onError(new Error('Falha simulada')));
+    render(<OrderModal open order={pedido([item({ projectedValue: 4100 })])} onClose={onClose} onSave={failure} nextOS={() => '1001'} />, { wrapper: wrapper() });
+    fireEvent.click(screen.getByRole('button', { name: /Salvar Alterações/i }));
+    await waitFor(() => expect(toast.error).toHaveBeenCalled());
+    expect(toast.success).not.toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
+    expect(failure).not.toHaveBeenCalled();
+    const first = (mockUpdateOrder.mock.calls[0][0] as any).itens[0].id;
+    fireEvent.click(screen.getByRole('button', { name: /Salvar Alterações/i }));
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+    expect((mockUpdateOrder.mock.calls[1][0] as any).itens[0].id).toBe(first);
   });
 });

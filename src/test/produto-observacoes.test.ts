@@ -72,7 +72,7 @@ describe('o caminho dos dados', () => {
   it('Sales.tsx entrega a anotação ao abrir o produto', () => {
     // Dois lugares: a lista de itens do pedido e a abertura do modal a partir
     // da aba Produtos. Faltando um, a caixa abre vazia por um dos caminhos.
-    const fonte = ler('pages/Sales.tsx');
+    const fonte = ler('pages/Sales.tsx') + ler('lib/order-adapter.ts');
     const ocorrencias = fonte.split("observations: produto.observacao ?? ''").length - 1
       + fonte.split("observations: p.observacao ?? ''").length - 1;
     expect(ocorrencias).toBe(2);

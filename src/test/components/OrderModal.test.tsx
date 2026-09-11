@@ -97,6 +97,7 @@ const existingOrder: Order = {
   salesTaxValue: 0,
   salesValue: 2000,
   items: [],
+  directSupplyItems: [],
   freight: [],
 };
 

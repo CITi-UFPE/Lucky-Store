@@ -100,6 +100,7 @@ def get_quote(
 
 
 @router.put("/{quote_id}", response_model=CotacaoResponse)
+@router.put("/{quote_id}/complete", response_model=CotacaoResponse)
 def update_quote(
     quote_id: UUID,
     data: CotacaoUpdate,

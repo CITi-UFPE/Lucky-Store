@@ -3,7 +3,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from uuid import UUID
 from typing import Optional, List, Any
-from app.schemas.produto import ProdutoResponse
+from app.schemas.produto import ProdutoResponse, ProdutoCreate
 
 
 VALID_STATUSES = [
@@ -56,6 +56,14 @@ class FretePagoUpdate(BaseModel):
     pago: bool
 
 
+class FreteSave(FreteCreate):
+    id: UUID
+
+
+class ProdutoSave(ProdutoCreate):
+    id: UUID
+
+
 class FreteOut(BaseModel):
     id: UUID
     entregador: Optional[str]
@@ -95,6 +103,8 @@ class CustoPedidoOut(CustoPedidoIn):
 # ── Pedido ────────────────────────────────────────────────────────────────────
 
 class PedidoCreate(BaseModel):
+    itens: Optional[List[ProdutoSave]] = None
+    fretes: Optional[List[FreteSave]] = None
     id_loja: UUID
     id_vendedor: UUID
     id_cotacao: Optional[UUID] = None
@@ -136,6 +146,8 @@ class PedidoCreate(BaseModel):
 
 
 class PedidoUpdate(BaseModel):
+    itens: Optional[List[ProdutoSave]] = None
+    fretes: Optional[List[FreteSave]] = None
     id_loja: Optional[UUID] = None
     id_vendedor: Optional[UUID] = None
     id_cliente: Optional[UUID] = None

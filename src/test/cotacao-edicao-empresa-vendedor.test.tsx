@@ -102,3 +102,28 @@ describe('quando o id não resolve', () => {
     expect(mockUpdateQuote).not.toHaveBeenCalled();
   });
 });
+
+import { apiClient } from '@/api/client';
+
+it('salva itens e fases juntos, preservando o formulario e ids se o PUT falhar', async () => {
+  const onClose = vi.fn();
+  const onSave = vi.fn();
+  const itemId = '12345678-1234-4234-9234-123456789012';
+  const q = { ...cotacao, items: [{ id: itemId, name: 'Notebook', quantity: 1, quoteValue: 1000, closingValue: 1000 }] } as Quote;
+  mockUpdateQuote.mockImplementationOnce((_payload: unknown, options: any) => options.onError(new Error('Falha simulada')));
+  render(<QuoteModal open quote={q} onClose={onClose} onSave={onSave} nextIndex={() => '82'} />);
+  fireEvent.click(screen.getByRole('button', { name: /Salvar Alterações/i }));
+  await waitFor(() => expect(mockToastError).toHaveBeenCalled());
+  expect(onClose).not.toHaveBeenCalled();
+  expect(onSave).not.toHaveBeenCalled();
+  expect(apiClient.delete).not.toHaveBeenCalled();
+  expect(apiClient.post).not.toHaveBeenCalled();
+  expect(mockUpdateQuote.mock.calls[0][0]).toMatchObject({
+    itens: [expect.objectContaining({ id: itemId, descricao: 'Notebook' })],
+    fase: expect.any(Object),
+  });
+  mockUpdateQuote.mockImplementationOnce((_payload: unknown, options: any) => options.onSuccess());
+  fireEvent.click(screen.getByRole('button', { name: /Salvar Alterações/i }));
+  await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+  expect(onSave.mock.calls[0][0].items[0].id).toBe(itemId);
+});

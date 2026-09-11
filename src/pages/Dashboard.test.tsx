@@ -44,7 +44,7 @@ vi.mock('@/components/dashboard/SellerBreakdownTable', () => ({
 }));
 
 vi.mock('@/components/dashboard/DashboardPieChart', () => ({
-  DashboardPieChart: () => <div data-testid="pie-chart" />,
+  DashboardPieChart: (props: unknown) => <div data-testid="pie-chart" data-parts={JSON.stringify(props)} />,
 }));
 
 vi.mock('@/components/dashboard/DashboardTicketBar', () => ({
@@ -191,4 +191,19 @@ describe('Dashboard', () => {
 
     expect(toast.error).toHaveBeenCalledWith('Erro ao carregar dados do dashboard');
   });
+});
+
+
+it('decomposes the full cost without adding fixed expenses twice', () => {
+  setupDefaultMocks();
+  vi.mocked(useDashboardKpis).mockReturnValue({ data: {
+    ...mockKpis, receita: 7464.50, custo: 1060.40, lucro: 6404.10,
+    custo_produtos: 840, custo_adicionais: 85.40, custo_frete: 135, outros_custos: 200,
+  }, isLoading: false, isError: false } as any);
+  renderDashboard();
+  const parts = JSON.parse(screen.getByTestId('pie-chart').getAttribute('data-parts')!);
+  expect(parts).toEqual({ custoProdutos: 840, custoAdicionais: 85.4, custoFrete: 135 });
+  expect(Object.values(parts).reduce((sum: number, value) => sum + Number(value), 0)).toBe(1060.4);
+  expect(screen.getByText(/Custo Total: R\$\s*1\.060,40/)).toBeInTheDocument();
+  expect(screen.getByText(/R\$\s*6\.204,10/)).toBeInTheDocument();
 });

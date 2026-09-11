@@ -5,16 +5,16 @@ const PIE_COLORS = ['#f59e0b', '#3b82f6', '#10b981'];
 const BRL = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
 interface DashboardPieChartProps {
-  custoPedidos: number;
+  custoProdutos: number;
   custoFrete: number;
-  outrosCustos: number;
+  custoAdicionais: number;
 }
 
-export function DashboardPieChart({ custoPedidos, custoFrete, outrosCustos }: DashboardPieChartProps) {
+export function DashboardPieChart({ custoProdutos, custoFrete, custoAdicionais }: DashboardPieChartProps) {
   const data = [
-    { name: 'Pedidos', value: custoPedidos },
+    { name: 'Produtos', value: custoProdutos },
     { name: 'Fretes', value: custoFrete },
-    { name: 'Despesas', value: outrosCustos },
+    { name: 'Custos adicionais', value: custoAdicionais },
   ].filter(d => d.value > 0);
 
   return (

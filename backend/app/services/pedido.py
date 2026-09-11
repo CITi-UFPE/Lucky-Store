@@ -7,8 +7,9 @@ from uuid import UUID, uuid4
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import Integer, asc, cast, desc, func, nullslast, text
 from sqlalchemy.exc import IntegrityError
-from app.models.pedido import Pedido, PedidoFormaPagamento, CustoPedido, STATUS_CANCELADO
+from app.models.pedido import Pedido, PedidoFormaPagamento, CustoPedido, Frete, STATUS_CANCELADO
 from app.models.cliente import Cliente
+from app.services.child_collection import sync_children
 from app.models.produto import Produto
 from app.models.rma import Rma
 from app.models.loja import Loja
@@ -257,6 +258,11 @@ class PedidoService:
             if data.custo:
                 db.add(CustoPedido(id_pedido=pedido.id, **data.custo.model_dump()))
 
+            if data.itens is not None:
+                sync_children(db, pedido.id, Produto, 'id_pedido', data.itens, 'produto', current_user_id)
+            if data.fretes is not None:
+                sync_children(db, pedido.id, Frete, 'id_pedido', data.fretes, 'frete', current_user_id)
+
             _audit(db, AuditAction.CREATE, pedido.id, current_user_id,
                    new_values={"status": pedido.status, "numero_os": pedido.numero_os},
                    ip_address=ip_address, user_agent=user_agent)
@@ -397,7 +403,16 @@ class PedidoService:
             "valor_venda": str(pedido.valor_venda) if pedido.valor_venda else None,
         }
 
-        dump = data.model_dump(exclude_none=True)
+        # Preserve legacy None semantics for non-nullable fields; explicitly
+        # supplied nulls may clear these nullable payment/text fields.
+        dump = data.model_dump(exclude_none=True, exclude={'itens', 'fretes'})
+        clearable = {
+            'data_pagamento', 'forma_pagamento_efetiva', 'contato_cliente',
+            'numero_nf', 'numero_oc', 'observacao', 'fornecedor_principal',
+            'nota_fiscal_fornecedor', 'plano_parcelas', 'plano_parcelas_pedido',
+        }
+        for field in data.model_fields_set & clearable:
+            dump[field] = getattr(data, field)
         custo_data = dump.pop('custo', None)
         formas_data = dump.pop('formas_pagamento', None)
 
@@ -424,6 +439,11 @@ class PedidoService:
                     setattr(pedido.custo, k, v)
             else:
                 db.add(CustoPedido(id_pedido=pedido.id, **custo_data))
+
+        if data.itens is not None:
+            sync_children(db, pedido.id, Produto, 'id_pedido', data.itens, 'produto', current_user_id)
+        if data.fretes is not None:
+            sync_children(db, pedido.id, Frete, 'id_pedido', data.fretes, 'frete', current_user_id)
 
         new_values = {
             "numero_os": pedido.numero_os,

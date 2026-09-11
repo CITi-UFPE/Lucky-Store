@@ -12,6 +12,7 @@ from app.models.loja import Loja
 from app.models.vendedor import Vendedor
 from app.models.item_cotacao import ItemCotacao
 from app.models.cliente import Cliente
+from app.services.child_collection import sync_children
 from app.services.cliente_identidade import obter_ou_criar_cliente
 from app.models.audit_log import AuditLog, AuditAction
 from app.models.status_history import StatusHistory, EntityType
@@ -334,7 +335,7 @@ class CotacaoService:
             "valor_total": str(cotacao.valor_total) if cotacao.valor_total else None,
         }
 
-        for field, value in data.model_dump(exclude_none=True).items():
+        for field, value in data.model_dump(exclude_none=True, exclude={'itens', 'fase'}).items():
             setattr(cotacao, field, value)
 
         _upsert_cliente(db, cotacao.cliente, cotacao.cnpj_cliente)
@@ -347,12 +348,17 @@ class CotacaoService:
         _audit(db, AuditAction.UPDATE, cotacao.id, current_user_id,
                old_values=old_values, new_values=new_values)
 
+        if data.itens is not None:
+            sync_children(db, cotacao.id, ItemCotacao, 'id_cotacao', data.itens, 'item_cotacao', current_user_id)
+        if data.fase is not None:
+            CotacaoService.update_phase(db, cotacao.id, data.fase, current_user_id, commit=False)
+
         db.commit()
         db.refresh(cotacao)
         return _hydrate_cotacao(db, cotacao)
 
     @staticmethod
-    def update_phase(db: Session, cotacao_id: UUID, data: PhaseUpdate, current_user_id: UUID) -> Cotacao:
+    def update_phase(db: Session, cotacao_id: UUID, data: PhaseUpdate, current_user_id: UUID, *, commit: bool = True) -> Cotacao:
         cotacao = CotacaoService.get_by_id(db, cotacao_id)
 
         old_phase = _get_quote_phase(cotacao)
@@ -386,6 +392,8 @@ class CotacaoService:
                 changed_by=current_user_id,
             ))
 
+        if not commit:
+            return cotacao
         db.commit()
         db.refresh(cotacao)
         return _hydrate_cotacao(db, cotacao)

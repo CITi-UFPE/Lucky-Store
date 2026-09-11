@@ -720,7 +720,7 @@ export default function Dashboard() {
                     <KpiCard
                       label="Custo Total"
                       value={BRL(kpis?.custo ?? 0)}
-                      sub="Custo das vendas"
+                      sub="Produtos + custos adicionais + fretes"
                       accent="text-red-600"
                     />
                     <KpiCard
@@ -779,9 +779,9 @@ export default function Dashboard() {
               </div>
 
               <DashboardPieChart
-                custoPedidos={kpis?.custo ?? 0}
+                custoProdutos={kpis?.custo_produtos ?? 0}
                 custoFrete={kpis?.custo_frete ?? 0}
-                outrosCustos={kpis?.outros_custos ?? 0}
+                custoAdicionais={kpis?.custo_adicionais ?? 0}
               />
               <HistoricalChart params={params} />
 

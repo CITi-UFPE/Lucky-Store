@@ -28,6 +28,8 @@ export interface DashboardKpis {
   imposto_venda: number
   outros_custos: number
   custo_frete: number
+  custo_produtos: number
+  custo_adicionais: number
 }
 
 export interface DashboardProjections {

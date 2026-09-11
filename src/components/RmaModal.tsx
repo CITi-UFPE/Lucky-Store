@@ -382,6 +382,7 @@ export function RmaModal({ open, onClose, orders, rma, onSave, nextRmaNumber }: 
       salesTaxPercent: 0, salesTaxValue: 0,
       salesValue: 0,
       items: [],
+      directSupplyItems: [],
       freight: [],
       rmaItems,
       rmaFreight: freight,

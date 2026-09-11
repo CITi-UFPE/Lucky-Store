@@ -36,6 +36,8 @@ class DashboardKpisResponse(BaseModel):
     imposto_venda: float
     outros_custos: float
     custo_frete: float
+    custo_produtos: float = 0
+    custo_adicionais: float = 0
 
 
 # ─── Breakdown ────────────────────────────────────────────────────────────────

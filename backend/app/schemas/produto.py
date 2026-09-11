@@ -28,6 +28,7 @@ class ProdutoCreate(BaseModel):
 
 
 class ProdutoUpdate(BaseModel):
+    descricao: Optional[str] = None
     # String vazia limpa a anotacao; None a deixa como esta. E de proposito:
     # update_item usa exclude_none, entao None significa "nao mexi neste
     # campo" e nunca chega a apagar nada sem querer.

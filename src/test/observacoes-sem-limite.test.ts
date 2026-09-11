@@ -62,7 +62,7 @@ describe.each(TELAS)('Observações — %s', (_nome, arquivo, placeholder) => {
 describe('o valor vai inteiro para a API', () => {
   it('pedido: sem corte no payload', () => {
     const fonte = ler('components/OrderModal.tsx');
-    expect(fonte).toContain('observacao: o.observations || undefined,');
+    expect(fonte).toContain('observacao: o.observations || null,');
     expect(fonte).not.toMatch(/observations[^\n]*\.slice\(/);
   });
 

@@ -1,3 +1,4 @@
+import { adaptPedidoToOrder } from '@/hooks/use-financial-orders';
 /**
  * Pedido cancelado tem que sair da conta do ticket medio — e o switch do modal
  * tem que concordar com o badge da lista.
@@ -57,18 +58,8 @@ describe('pedido cancelado', () => {
 
 // A funcao acima e uma copia; sozinha ela nao impede ninguem de voltar o
 // mapeamento para `is_cancelled ?? false`. Estes dois checam a fonte de verdade.
-describe('os mapeadores usam a regra completa', () => {
-  const ler = (p: string) => readFileSync(resolve(__dirname, '..', p), 'utf-8');
-
-  it('Sales.tsx (lista de pedidos)', () => {
-    expect(ler('pages/Sales.tsx')).toContain(
-      "cancelled: (item.is_cancelled ?? false) || item.status === 'Cancelled',"
-    );
-  });
-
-  it('use-financial-orders.ts (tela Financeiro)', () => {
-    expect(ler('hooks/use-financial-orders.ts')).toContain(
-      "cancelled: (p.is_cancelled ?? false) || p.status === 'Cancelled',"
-    );
+describe('o adaptador compartilhado aplica a regra de cancelamento', () => {
+  it('preserva o cancelamento pelo status mesmo quando a flag vem false', () => {
+    expect(adaptPedidoToOrder({ status: 'Cancelled', is_cancelled: false } as any).cancelled).toBe(true);
   });
 });

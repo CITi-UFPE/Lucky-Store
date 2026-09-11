@@ -128,17 +128,17 @@ describe('useUpdateOrder', () => {
   beforeEach(() => vi.clearAllMocks());
 
   it('calls PUT /pedidos/:id with the payload', async () => {
-    const updated = { ...mockOrder, status: 'Bought' };
+    const updated = { ...mockOrder, numero_nf: 'NF-123' };
     mockPut.mockResolvedValueOnce({ data: updated });
 
     const { result } = renderHook(() => useUpdateOrder('backend-uuid-abc'), { wrapper: makeWrapper() });
 
     await act(async () => {
-      result.current.mutate({ status: 'Bought' as const });
+      result.current.mutate({ numero_nf: 'NF-123' });
     });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(mockPut).toHaveBeenCalledWith('/pedidos/backend-uuid-abc', { status: 'Bought' });
+    expect(mockPut).toHaveBeenCalledWith('/pedidos/backend-uuid-abc', { numero_nf: 'NF-123' });
   });
 });
 
@@ -155,5 +155,24 @@ describe('useDeleteOrder', () => {
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(mockDelete).toHaveBeenCalledWith('/pedidos/backend-uuid-abc');
+  });
+});
+
+
+describe('complete order persistence endpoints', () => {
+  beforeEach(() => vi.clearAllMocks());
+  it('creates the order and its children using the complete endpoint', async () => {
+    mockPost.mockResolvedValueOnce({ data: mockOrder });
+    const { result } = renderHook(() => useCreateOrder(), { wrapper: makeWrapper() });
+    const payload = { id_loja: 'loja', id_vendedor: 'vendedor', nome_cliente: 'Cliente',
+      data_pedido: '2026-09-11', data_entrega: '2026-09-12', status: 'To Buy' as const, itens: [], fretes: [] };
+    await act(async () => { await result.current.mutateAsync({ payload, idempotencyKey: 'retry' }); });
+    expect(mockPost).toHaveBeenCalledWith('/pedidos/complete', payload, { headers: { 'Idempotency-Key': 'retry' } });
+  });
+  it('uses a dedicated update endpoint so an older backend cannot silently ignore items', async () => {
+    mockPut.mockResolvedValueOnce({ data: mockOrder });
+    const { result } = renderHook(() => useUpdateOrder('order'), { wrapper: makeWrapper() });
+    await act(async () => { await result.current.mutateAsync({ itens: [], fretes: [] }); });
+    expect(mockPut).toHaveBeenCalledWith('/pedidos/order/complete', { itens: [], fretes: [] });
   });
 });

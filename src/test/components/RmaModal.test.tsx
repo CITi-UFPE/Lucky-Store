@@ -68,7 +68,7 @@ const mockUseOrdersQuery = vi.fn(() => ({
 }));
 
 vi.mock('@/hooks/use-orders-query', () => ({
-  useOrdersQuery: (...args: any[]) => mockUseOrdersQuery(...args),
+  useOrdersQuery: (...args: any[]) => mockUseOrdersQuery(),
 }));
 
 // ─── Fixtures ────────────────────────────────────────────────────────────────
@@ -117,6 +117,7 @@ const deliveredOrder: Order = {
       purchaseValue: 800,
     },
   ],
+  directSupplyItems: [],
   freight: [],
 };
 
@@ -255,7 +256,7 @@ describe('RmaModal — step 3: form + API call', () => {
 
   it('shows the RMA form in step 3', async () => {
     await renderAndAdvanceToStep3();
-    expect(screen.getByText(/Produtos do RMA/i)).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /Itens do RMA/i })).toBeInTheDocument();
     // Item name is in an Input value in step 3 (not a text node)
     expect(screen.getByDisplayValue('Impressora HP LaserJet')).toBeInTheDocument();
   });

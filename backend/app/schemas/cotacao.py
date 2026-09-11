@@ -40,6 +40,10 @@ class ItemCotacaoUpdate(BaseModel):
         return v
 
 
+class ItemCotacaoSave(ItemCotacaoCreate):
+    id: UUID
+
+
 class ItemCotacaoResponse(BaseModel):
     id: UUID
     id_cotacao: UUID
@@ -107,6 +111,8 @@ class CotacaoCreate(BaseModel):
 
 
 class CotacaoUpdate(BaseModel):
+    itens: Optional[List[ItemCotacaoSave]] = None
+    fase: Optional[PhaseUpdate] = None
     id_loja: Optional[UUID] = None
     id_vendedor: Optional[UUID] = None
     numero_requisicao: Optional[str] = None

@@ -1,3 +1,5 @@
+import { saveChildId } from '@/lib/save-ids';
+import { resizeInstallments } from '@/lib/installments';
 import { useState, useEffect, useRef, Fragment, KeyboardEvent, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -28,7 +30,7 @@ import type { OrderPrefill } from '@/components/AddOrderChooser';
 import { StatusTimeline } from '@/components/StatusTimeline';
 import { useCreateOrder, useUpdateOrder, useUpdateOrderStatus, orderKeys } from '@/api/hooks/useOrders';
 import { useQueryClient } from '@tanstack/react-query';
-import { apiClient, getApiError } from '@/api/client';
+import { getApiError } from '@/api/client';
 import type { CreatePedidoPayload, UpdatePedidoPayload, PedidoStatus } from '@/types/api';
 import { LOJA_IDS, VENDEDOR_IDS, FORMA_PAGAMENTO_MAP } from '@/api/storeConfig';
 import { useVendedores } from '@/hooks/useVendedores';
@@ -583,6 +585,7 @@ export function OrderModal({ open, onClose, order, onSave, nextOS, prefill }: Pr
    * SEGUINTE: o vendedor abriria um pedido novo, salvaria, e receberia de volta
    * o pedido antigo. */
   const chaveTentativa = useRef<string | null>(null);
+  const childIds = useRef(new Map<string, string>());
 
   useEffect(() => {
     if (order) {
@@ -618,6 +621,7 @@ export function OrderModal({ open, onClose, order, onSave, nextOS, prefill }: Pr
     }
     setEditingField(null);
     chaveTentativa.current = null;
+    childIds.current.clear();
   }, [order, open, nextOS, prefill]);
 
   const set = (k: keyof Order, v: any) => setForm(prev => ({ ...prev, [k]: v }));
@@ -733,6 +737,7 @@ export function OrderModal({ open, onClose, order, onSave, nextOS, prefill }: Pr
 
   /* ---------------- Save (with validation) ---------------- */
   const handleSave = () => {
+    if (isPending) return;
     // Empresa e Vendedor entram aqui porque o backend os exige (id_loja e
     // id_vendedor sao NOT NULL). Em branco eles viravam '' no payload e o
     // Pydantic devolvia 422 de uuid_parsing — erro tecnico na cara do vendedor,
@@ -815,15 +820,15 @@ export function OrderModal({ open, onClose, order, onSave, nextOS, prefill }: Pr
     const onApiError = (err: unknown) => toast.error(getApiError(err));
 
     const pagamentoPayload = {
-      data_pagamento: o.paymentDate || undefined,
-      multa: o.penaltyValue ? String(o.penaltyValue) : undefined,
-      juros: o.interestValue ? String(o.interestValue) : undefined,
+      data_pagamento: o.paymentDate || null,
+      multa: String(o.penaltyValue || 0),
+      juros: String(o.interestValue || 0),
       forma_pagamento_efetiva: o.paymentMethod
         ? (FORMA_PAGAMENTO_MAP[o.paymentMethod as string] ?? o.paymentMethod)
-        : undefined,
-      num_parcelas_efetivas: o.paymentInstallments > 1 ? o.paymentInstallments : undefined,
-      plano_parcelas: o.paymentInstallmentPlan?.length ? o.paymentInstallmentPlan : undefined,
-      plano_parcelas_pedido: o.orderInstallmentPlan?.length ? o.orderInstallmentPlan : undefined,
+        : null,
+      num_parcelas_efetivas: o.paymentInstallments || 1,
+      plano_parcelas: o.paymentInstallmentPlan || [],
+      plano_parcelas_pedido: o.orderInstallmentPlan || [],
     };
 
     const custoPayload = {
@@ -841,6 +846,44 @@ export function OrderModal({ open, onClose, order, onSave, nextOS, prefill }: Pr
       imposto_venda: String(computed.salesTaxValue),
     };
 
+    const idFor = (id: string) => saveChildId(id, childIds.current, isEdit);
+    const itemVendor = vendorIdByName(o.seller ?? '', o.company);
+    const childrenPayload = {
+      itens: [
+        ...o.items.map(item => ({
+          id: idFor(item.id), id_vendedor: itemVendor,
+          descricao: item.name || 'Item', quantidade: item.quantity || 1,
+          valor_projetado: Math.max(0.01, item.projectedValue),
+          valor_compra: item.purchaseValue || 0,
+          valor_venda: item.saleValue ?? undefined,
+          status: item.status,
+        })),
+        ...o.directSupplyItems.map(item => ({
+          id: idFor(item.id), id_vendedor: itemVendor,
+          descricao: item.name || 'Item', quantidade: item.quantity || 1,
+          valor_projetado: Math.max(0.01, item.projectedValue),
+          preco_custo: item.purchaseValue || 0,
+          valor_compra: item.closingValue || 0,
+          is_direct_supply: true,
+          fornecedor: item.supplier || '',
+          porcentagem_fornecedor: String(item.supplierPct || 0),
+          frete_fornecedor: String(item.supplierFreight || 0),
+          nota_fiscal_item: item.supplierInvoice || '',
+        })),
+      ],
+      fretes: o.freight.map(f => ({
+        id: idFor(f.id), entregador: f.deliveryPerson || null,
+        valor: f.value || 0, data_frete: f.deliveryDate || o.deliveryDate,
+        pago: f.pago ?? false,
+      })),
+    };
+    const savedOrder = {
+      ...o,
+      items: o.items.map(i => ({ ...i, id: idFor(i.id) })),
+      directSupplyItems: o.directSupplyItems.map(i => ({ ...i, id: idFor(i.id) })),
+      freight: o.freight.map(f => ({ ...f, id: idFor(f.id) })),
+    };
+
     if (isEdit) {
       const payload: UpdatePedidoPayload = {
         contato_cliente: (o.customerContact || '').trim(),
@@ -848,15 +891,16 @@ export function OrderModal({ open, onClose, order, onSave, nextOS, prefill }: Pr
         data_entrega: o.deliveryDate,
         valor_venda: String(o.salesValue),
         parcelas: o.installments || undefined,
-        observacao: o.observations || undefined,
-        numero_nf: o.invoice || undefined,
-        nota_fiscal_fornecedor: o.invoiceSupplier || undefined,
-        numero_oc: o.ocAfPed || undefined,
+        observacao: o.observations || null,
+        numero_nf: o.invoice || null,
+        nota_fiscal_fornecedor: o.invoiceSupplier || null,
+        numero_oc: o.ocAfPed || null,
         is_direct_billing: o.directBilling,
-        fornecedor_principal: o.supplier || undefined,
+        fornecedor_principal: o.supplier || null,
         formas_pagamento: o.paymentMethods.map(m => ({ forma: FORMA_PAGAMENTO_MAP[m] ?? m })),
         custo: custoPayload,
         ...pagamentoPayload,
+        ...childrenPayload,
       };
       const statusChanged = order && o.status !== order.status;
       const sellerId = vendorIdByName((o.seller as string) ?? '', o.company);
@@ -886,108 +930,11 @@ export function OrderModal({ open, onClose, order, onSave, nextOS, prefill }: Pr
       if (lojaId) payload.id_loja = lojaId;
       if (sellerId) payload.id_vendedor = sellerId;
 
-      // ── Item diff ───────────────────────────────────────────────────────────
-      const origItems = order?.items ?? [];
-      const toAdd = o.items.filter(i => !origItems.some(orig => orig.id === i.id));
-      const toDelete = origItems.filter(orig => !o.items.some(i => i.id === orig.id));
-      const toUpdateStatus = o.items.filter(i => {
-        const orig = origItems.find(orig => orig.id === i.id);
-        return orig && orig.status !== i.status;
-      });
-      const toUpdateValues = o.items.filter(i => {
-        const orig = origItems.find(orig => orig.id === i.id);
-        // `saleValue` entra aqui pelo mesmo motivo que os outros tres: sem
-        // comparar o campo, editar SO o valor de venda nao dispara PUT nenhum —
-        // a tela mostra o numero novo, o salvamento responde com sucesso e o
-        // banco continua com o antigo. E o defeito da troca de empresa outra
-        // vez, num campo diferente.
-        return orig && (orig.quantity !== i.quantity
-          || orig.projectedValue !== i.projectedValue || orig.purchaseValue !== i.purchaseValue
-          || orig.saleValue !== i.saleValue);
-      });
-
-      // ── DS item diff ────────────────────────────────────────────────────────
-      const origDsItems = order?.directSupplyItems ?? [];
-      const dsChanged = origDsItems.length !== o.directSupplyItems.length
-        || o.directSupplyItems.some(curr => {
-          const orig = origDsItems.find(x => x.id === curr.id);
-          return !orig || orig.name !== curr.name || orig.quantity !== curr.quantity
-            || orig.projectedValue !== curr.projectedValue || orig.purchaseValue !== curr.purchaseValue
-            || orig.closingValue !== curr.closingValue
-            || orig.supplier !== curr.supplier || orig.supplierPct !== curr.supplierPct
-            || orig.supplierFreight !== curr.supplierFreight || orig.supplierInvoice !== curr.supplierInvoice;
-        });
-
-      // ── Frete diff ──────────────────────────────────────────────────────────
-      const origFretes = order?.freight ?? [];
-      const fretesToAdd = o.freight.filter(f => !origFretes.some(orig => orig.id === f.id));
-      const fretesToDelete = origFretes.filter(orig => !o.freight.some(f => f.id === orig.id));
-      const fretesToUpdate = o.freight.filter(f => {
-        const orig = origFretes.find(orig => orig.id === f.id);
-        return orig && (orig.value !== f.value || orig.deliveryPerson !== f.deliveryPerson || orig.deliveryDate !== f.deliveryDate || orig.pago !== f.pago);
-      });
-
-      const freteBody = (f: FreightCard) => ({
-        entregador: f.deliveryPerson || null,
-        valor: f.value || 0,
-        data_frete: f.deliveryDate || o.deliveryDate,
-        pago: f.pago ?? false,
-      });
-
-      const syncItems = async (pedidoId: string) => {
-        await Promise.all([
-          ...toAdd.map(item => apiClient.post(`/pedidos/${pedidoId}/items`, {
-            id_vendedor: sellerId,
-            descricao: item.name || 'Item',
-            quantidade: item.quantity || 1,
-            valor_projetado: Math.max(0.01, item.projectedValue),
-            valor_venda: item.saleValue != null ? item.saleValue : undefined,
-            valor_compra: item.purchaseValue > 0 ? item.purchaseValue : undefined,
-            status: item.status,
-          })),
-          ...toDelete.map(item => apiClient.delete(`/pedidos/${pedidoId}/items/${item.id}`)),
-          ...toUpdateStatus.map(item =>
-            apiClient.patch(`/pedidos/${pedidoId}/items/${item.id}/status`, { new_status: item.status })
-          ),
-          ...toUpdateValues.map(item =>
-            apiClient.put(`/pedidos/${pedidoId}/items/${item.id}`, {
-              quantidade: item.quantity || 1,
-              valor_projetado: Math.max(0.01, item.projectedValue),
-              valor_venda: item.saleValue != null ? item.saleValue : undefined,
-              valor_compra: item.purchaseValue > 0 ? item.purchaseValue : undefined,
-            })
-          ),
-          ...(dsChanged ? origDsItems.map(item => apiClient.delete(`/pedidos/${pedidoId}/items/${item.id}`)) : []),
-          ...(dsChanged ? o.directSupplyItems.map(item => apiClient.post(`/pedidos/${pedidoId}/items`, {
-            id_vendedor: sellerId,
-            descricao: item.name || 'Item',
-            quantidade: item.quantity || 1,
-            valor_projetado: Math.max(0.01, item.projectedValue),
-            preco_custo: item.purchaseValue > 0 ? item.purchaseValue : undefined,
-            valor_compra: item.closingValue > 0 ? item.closingValue : undefined,
-            status: 'To Buy',
-            is_direct_supply: true,
-            porcentagem_fornecedor: item.supplierPct != null ? String(item.supplierPct) : undefined,
-            frete_fornecedor: item.supplierFreight != null ? String(item.supplierFreight) : undefined,
-            nota_fiscal_item: item.supplierInvoice || undefined,
-            fornecedor: item.supplier || undefined,
-          })) : []),
-          ...fretesToAdd.map(f => apiClient.post(`/pedidos/${pedidoId}/fretes`, freteBody(f))),
-          ...fretesToDelete.map(f => apiClient.delete(`/pedidos/${pedidoId}/fretes/${f.id}`)),
-          ...fretesToUpdate.map(f => apiClient.put(`/pedidos/${pedidoId}/fretes/${f.id}`, freteBody(f))),
-        ]);
-      };
-      const finish = async () => {
-        const hasChanges = toAdd.length || toDelete.length || toUpdateStatus.length || toUpdateValues.length
-          || dsChanged
-          || fretesToAdd.length || fretesToDelete.length || fretesToUpdate.length;
-        if (hasChanges) {
-          try { await syncItems(o.id); } catch (err) { toast.error(getApiError(err)); }
-        }
+      const finish = () => {
         qc.invalidateQueries({ queryKey: orderKeys.lists() });
         qc.invalidateQueries({ queryKey: ['financial-orders'] });
         toast.success('Pedido atualizado com sucesso');
-        onSave(o);
+        onSave(savedOrder);
         onClose();
       };
       updateOrder(payload, {
@@ -1013,87 +960,25 @@ export function OrderModal({ open, onClose, order, onSave, nextOS, prefill }: Pr
         status: o.status as PedidoStatus,
         valor_venda: String(o.salesValue),
         parcelas: o.installments || undefined,
-        observacao: o.observations || undefined,
-        numero_nf: o.invoice || undefined,
-        nota_fiscal_fornecedor: o.invoiceSupplier || undefined,
-        numero_oc: o.ocAfPed || undefined,
+        observacao: o.observations || null,
+        numero_nf: o.invoice || null,
+        nota_fiscal_fornecedor: o.invoiceSupplier || null,
+        numero_oc: o.ocAfPed || null,
         is_direct_billing: o.directBilling,
-        fornecedor_principal: o.supplier || undefined,
+        fornecedor_principal: o.supplier || null,
         formas_pagamento: o.paymentMethods.map(m => ({ forma: FORMA_PAGAMENTO_MAP[m] ?? m })),
         custo: custoPayload,
         ...pagamentoPayload,
+        ...childrenPayload,
       };
       if (!chaveTentativa.current) chaveTentativa.current = novaChaveIdempotencia();
       createOrder({ payload, idempotencyKey: chaveTentativa.current }, {
-        onSuccess: async (data) => {
+        onSuccess: (data) => {
           chaveTentativa.current = null;
-          const newId = data.id;
-          const vendedorId = String(data.id_vendedor);
-          let savedItems = o.items;
-          if (o.items.length > 0) {
-            try {
-              const results = await Promise.all(
-                o.items.map(item =>
-                  apiClient.post(`/pedidos/${newId}/items`, {
-                    id_vendedor: vendedorId,
-                    descricao: item.name || 'Item',
-                    quantidade: item.quantity || 1,
-                    valor_projetado: Math.max(0.01, item.projectedValue),
-                    valor_venda: item.saleValue != null ? item.saleValue : undefined,
-                    valor_compra: item.purchaseValue > 0 ? item.purchaseValue : undefined,
-                    status: item.status,
-                  }).then(r => r.data)
-                )
-              );
-              savedItems = results.map((r, i) => ({ ...o.items[i], id: r.id }));
-            } catch (err) {
-              toast.error(getApiError(err));
-            }
-          }
-          let savedDsItems = o.directSupplyItems;
-          if (o.directSupplyItems.length > 0) {
-            try {
-              const results = await Promise.all(
-                o.directSupplyItems.map(item =>
-                  apiClient.post(`/pedidos/${newId}/items`, {
-                    id_vendedor: vendedorId,
-                    descricao: item.name || 'Item',
-                    quantidade: item.quantity || 1,
-                    valor_projetado: Math.max(0.01, item.projectedValue),
-                    preco_custo: item.purchaseValue > 0 ? item.purchaseValue : undefined,
-                    valor_compra: item.closingValue > 0 ? item.closingValue : undefined,
-                    status: 'To Buy',
-                    is_direct_supply: true,
-                    porcentagem_fornecedor: item.supplierPct != null ? String(item.supplierPct) : undefined,
-                    frete_fornecedor: item.supplierFreight != null ? String(item.supplierFreight) : undefined,
-                    nota_fiscal_item: item.supplierInvoice || undefined,
-                    fornecedor: item.supplier || undefined,
-                  }).then(r => r.data)
-                )
-              );
-              savedDsItems = results.map((r, i) => ({ ...o.directSupplyItems[i], id: r.id }));
-            } catch (err) {
-              toast.error(getApiError(err));
-            }
-          }
-          if (o.freight.length > 0) {
-            try {
-              await Promise.all(
-                o.freight.map(f => apiClient.post(`/pedidos/${newId}/fretes`, {
-                  entregador: f.deliveryPerson || null,
-                  valor: f.value || 0,
-                  data_frete: f.deliveryDate || o.deliveryDate,
-                  pago: f.pago ?? false,
-                }))
-              );
-            } catch (err) {
-              toast.error(getApiError(err));
-            }
-          }
           qc.invalidateQueries({ queryKey: orderKeys.lists() });
           qc.invalidateQueries({ queryKey: ['financial-orders'] });
           toast.success('Pedido criado com sucesso');
-          onSave({ ...o, id: newId, items: savedItems, directSupplyItems: savedDsItems });
+          onSave({ ...savedOrder, id: data.id, os: data.numero_os });
           onClose();
         },
         onError: onApiError,
@@ -1873,13 +1758,8 @@ function PagamentoSection({ form, set }: { form: Partial<Order>; set: (k: keyof 
   const baseValue = form.salesValue || 0;
 
   useEffect(() => {
-    if (!orderIsCredit) return;
     if (orderPlan.length === orderN) return;
-    const valuePer = orderN > 0 ? +(baseValue / orderN).toFixed(2) : 0;
-    const next: PaymentInstallment[] = Array.from({ length: orderN }, (_, i) =>
-      orderPlan[i] || { date: '', value: valuePer }
-    );
-    set('orderInstallmentPlan', next);
+    set('orderInstallmentPlan', resizeInstallments(orderPlan, orderN, baseValue));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orderN, orderIsCredit]);
 
@@ -1895,13 +1775,8 @@ function PagamentoSection({ form, set }: { form: Partial<Order>; set: (k: keyof 
   const juros = form.interestValue || 0;
 
   useEffect(() => {
-    if (!chargeIsCredit) return;
     if (chargePlan.length === chargeN) return;
-    const valuePer = chargeN > 0 ? +(((multa + juros) || 0) / chargeN).toFixed(2) : 0;
-    const next: PaymentInstallment[] = Array.from({ length: chargeN }, (_, i) =>
-      chargePlan[i] || { date: '', value: valuePer }
-    );
-    set('paymentInstallmentPlan', next);
+    set('paymentInstallmentPlan', resizeInstallments(chargePlan, chargeN, multa + juros));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chargeN, chargeIsCredit]);
 

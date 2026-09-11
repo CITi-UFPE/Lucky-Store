@@ -379,7 +379,7 @@ class TestRmaStatus:
 
     def test_ten_statuses_exist(self):
         from app.models.rma import RmaStatus
-        assert len(RmaStatus) == 10
+        assert len(RmaStatus) == 11
 
     def test_all_values_are_title_case(self):
         from app.models.rma import RmaStatus
@@ -432,7 +432,7 @@ class TestItemRmaStatus:
 
     def test_eight_statuses_exist(self):
         from app.models.item_rma import ItemRmaStatus
-        assert len(ItemRmaStatus) == 10
+        assert len(ItemRmaStatus) == 11
 
 
 class TestItemRmaModel:

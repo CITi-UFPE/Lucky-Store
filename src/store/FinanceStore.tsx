@@ -1,3 +1,5 @@
+import { toast } from 'sonner';
+import { getApiError } from '@/api/client';
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { apiFetch } from '@/lib/api';
@@ -233,10 +235,10 @@ export function expandOrderFretes(o: Order): CalendarEntry[] {
 
 interface FinanceContextType {
   expenses: Expense[];
-  addExpense: (e: Expense) => void;
-  endRecurrence: (id: string) => void;
-  updateExpense: (e: Expense) => void;
-  deleteExpense: (id: string) => void;
+  addExpense: (e: Expense) => Promise<void>;
+  endRecurrence: (id: string) => Promise<void>;
+  updateExpense: (e: Expense) => Promise<void>;
+  deleteExpense: (id: string) => Promise<void>;
   /** Monthly goals (KPI configuration) */
   goals: Goal[];
   upsertGoal: (g: Goal) => void;
@@ -331,7 +333,7 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     apiFetch<DespesaApiItem[]>('/despesas')
       .then(data => setExpenses(data.map(fromApi)))
-      .catch(() => { /* mantém lista vazia se API indisponível */ });
+      .catch(err => toast.error(getApiError(err)));
   }, []);
 
   /** Recarrega a lista do servidor. */
@@ -340,52 +342,37 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
     [],
   );
 
-  const addExpense = useCallback((e: Expense) => {
-    setExpenses(p => [...p, e]);
-    apiFetch<DespesaApiItem>('/despesas', {
+  const addExpense = useCallback(async (e: Expense) => {
+    const created = await apiFetch<DespesaApiItem>('/despesas', {
       init: { method: 'POST', body: JSON.stringify(toApiPayload(e)) },
-    }).then(created => {
-      setExpenses(p => p.map(x => x.id === e.id ? fromApi(created) : x));
-      // Despesa recorrente nasce com os próximos meses junto, e eles são criados
-      // no servidor. Sem recarregar, a tela mostraria só o primeiro mês e daria
-      // a impressão de que a repetição não funcionou.
-      if (e.recurring) return recarregar();
-      invalidateDashboard();
-    }).then(() => { if (e.recurring) invalidateDashboard(); })
-      .catch(() => { /* mantém entrada otimista */ });
+    });
+    setExpenses(p => [...p, fromApi(created)]);
+    // The write already succeeded. A refresh failure must not suggest retrying
+    // the POST, which would create a duplicate expense.
+    if (e.recurring) await recarregar().catch(err => toast.error(getApiError(err)));
+    invalidateDashboard();
   }, [invalidateDashboard, recarregar]);
 
-  /** Encerra a repetição da série a que esta despesa pertence.
-   *
-   *  Recarrega em vez de mexer na lista local: encerrar apaga as previsões
-   *  futuras, e adivinhar aqui quais sumiram significaria repetir a regra do
-   *  servidor — e ela mudar de um lado só. */
-  const endRecurrence = useCallback((id: string) => {
-    apiFetch(`/despesas/${id}/encerrar-recorrencia`, { init: { method: 'POST' } })
-      .then(() => recarregar())
-      .then(() => invalidateDashboard())
-      .catch(() => { /* a lista continua como está */ });
+  const endRecurrence = useCallback(async (id: string) => {
+    await apiFetch(`/despesas/${id}/encerrar-recorrencia`, { init: { method: 'POST' } });
+    await recarregar().catch(err => toast.error(getApiError(err)));
+    invalidateDashboard();
   }, [invalidateDashboard, recarregar]);
 
-  const updateExpense = useCallback((e: Expense) => {
-    setExpenses(p => p.map(x => x.id === e.id ? e : x));
-    apiFetch<DespesaApiItem>(`/despesas/${e.id}`, {
+  const updateExpense = useCallback(async (e: Expense) => {
+    const saved = await apiFetch<DespesaApiItem>(`/despesas/${e.id}`, {
       init: { method: 'PUT', body: JSON.stringify(toApiPayload(e)) },
-    }).then(() => invalidateDashboard())
-      .catch(() => { /* atualização otimista já aplicada */ });
+    });
+    setExpenses(p => p.map(x => x.id === e.id ? fromApi(saved) : x));
+    invalidateDashboard();
   }, [invalidateDashboard]);
 
-  const deleteExpense = useCallback((id: string) => {
-    // Numa despesa recorrente, o servidor remove TODAS as cópias não pagas, e
-    // não só esta. Tirar só o id da lista local deixaria os outros meses na
-    // tela até alguém recarregar — com a impressão de que a exclusão falhou
-    // pela metade. Por isso a lista vem do servidor de novo.
-    const recorrente = expenses.find(x => x.id === id)?.recurrenceId;
+  const deleteExpense = useCallback(async (id: string) => {
+    const recurring = expenses.find(x => x.id === id)?.recurrenceId;
+    await apiFetch(`/despesas/${id}`, { init: { method: 'DELETE' } });
     setExpenses(p => p.filter(x => x.id !== id));
-    apiFetch(`/despesas/${id}`, { init: { method: 'DELETE' } })
-      .then(() => (recorrente ? recarregar() : undefined))
-      .then(() => invalidateDashboard())
-      .catch(() => { /* remoção otimista já aplicada */ });
+    if (recurring) await recarregar().catch(err => toast.error(getApiError(err)));
+    invalidateDashboard();
   }, [expenses, invalidateDashboard, recarregar]);
 
   const upsertGoal = useCallback((g: Goal) => {

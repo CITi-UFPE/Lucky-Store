@@ -45,6 +45,7 @@ def _fake_item_rma(rma_id=None):
     item.descricao = "Notebook com defeito"
     item.quantidade = 1
     item.status = ItemRmaStatus.NOT_RECEIVED
+    item.fornecedor = None
     item.consertado_por = None
     item.valor_estornado = None
     item.data_estorno = None

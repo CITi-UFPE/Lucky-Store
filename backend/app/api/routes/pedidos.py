@@ -62,6 +62,7 @@ router = APIRouter(prefix="/pedidos", tags=["pedidos"])
 
 
 @router.post("", response_model=PedidoResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/complete", response_model=PedidoResponse, status_code=status.HTTP_201_CREATED)
 def create_pedido(
     request: Request,
     response: Response,
@@ -208,6 +209,7 @@ def get_pedido(
 
 
 @router.put("/{pedido_id}", response_model=PedidoResponse)
+@router.put("/{pedido_id}/complete", response_model=PedidoResponse)
 def update_pedido(
     request: Request,
     pedido_id: UUID,

@@ -70,7 +70,7 @@ const fmtDate = (iso: string) => format(new Date(iso + 'T12:00:00'), 'dd/MM/yyyy
 
 export function FinancialManager() {
   const { expenses, addExpense, updateExpense, deleteExpense, endRecurrence } = useFinance();
-  const { data: orders = [] } = useFinancialOrders();
+  const { data: orders = [], isError: ordersFailed, isLoading: ordersLoading, refetch: reloadOrders } = useFinancialOrders();
   const { data: rmasData } = useRmas({ limit: 500 });
   const rmas = rmasData?.items ?? [];
   const { updateOrder, deleteOrder, nextOS } = useOrders();
@@ -264,6 +264,11 @@ export function FinancialManager() {
 
   return (
     <div className="space-y-4">
+      {ordersLoading && <p role="status" className="text-sm text-muted-foreground">Carregando pedidos...</p>}
+      {ordersFailed && <div role="alert" className="text-sm text-destructive">
+        Não foi possível carregar todos os pedidos. Os totais podem estar incompletos.
+        <Button variant="link" onClick={() => reloadOrders()}>Tentar novamente</Button>
+      </div>}
       <Tabs value={macroTab} onValueChange={(v) => setMacroTab(v as 'finances' | 'fretes')}>
         <TabsList
           className="mb-2 h-auto p-1"

@@ -124,7 +124,26 @@ export interface PedidoResponse {
   updated_at: string;
 }
 
+export interface PedidoItemSave {
+  id: string;
+  id_vendedor: string;
+  descricao: string;
+  quantidade: number;
+  valor_projetado: number;
+  valor_compra?: number;
+  valor_venda?: number;
+  preco_custo?: number;
+  status?: string;
+  is_direct_supply?: boolean;
+  fornecedor?: string;
+  porcentagem_fornecedor?: string;
+  frete_fornecedor?: string;
+  nota_fiscal_item?: string;
+}
+
 export interface CreatePedidoPayload {
+  itens?: PedidoItemSave[];
+  fretes?: { id: string; entregador: string | null; valor: number; data_frete: string; pago: boolean }[];
   id_loja: string;
   id_vendedor: string;
   id_cotacao?: string;
@@ -137,18 +156,18 @@ export interface CreatePedidoPayload {
   status: PedidoStatus;
   valor_venda?: string;
   parcelas?: number;
-  observacao?: string;
-  numero_nf?: string;
-  nota_fiscal_fornecedor?: string;
-  numero_oc?: string;
+  observacao?: string | null;
+  numero_nf?: string | null;
+  nota_fiscal_fornecedor?: string | null;
+  numero_oc?: string | null;
   is_direct_billing?: boolean;
-  fornecedor_principal?: string;
+  fornecedor_principal?: string | null;
   formas_pagamento?: { forma: string }[];
   custo?: Partial<Omit<CustoPedido, 'id' | 'id_pedido'>>;
-  data_pagamento?: string;
+  data_pagamento?: string | null;
   multa?: string;
   juros?: string;
-  forma_pagamento_efetiva?: string;
+  forma_pagamento_efetiva?: string | null;
   num_parcelas_efetivas?: number;
   plano_parcelas?: { date: string; value: number }[];
   plano_parcelas_pedido?: { date: string; value: number }[];
@@ -322,10 +341,12 @@ export interface CreateCotacaoPayload {
  * uma cotação já salva não chegava ao banco: mudava na tela, respondia 200,
  * dizia que salvou, e sumia ao recarregar.
  *
- * `itens` continua fora: item tem rota própria, porque editar a lista é
- * adicionar, remover e atualizar um a um, não substituir um campo.
+ * Itens e fases podem ser enviados juntos para salvar em uma transação.
  */
-export type UpdateCotacaoPayload = Partial<Omit<CreateCotacaoPayload, 'itens'>>;
+export type UpdateCotacaoPayload = Partial<Omit<CreateCotacaoPayload, 'itens'>> & {
+  itens?: (NonNullable<CreateCotacaoPayload['itens']>[number] & { id: string })[];
+  fase?: UpdateCotacaoFasePayload;
+};
 
 export interface UpdateCotacaoFasePayload {
   status_enviada?: boolean;

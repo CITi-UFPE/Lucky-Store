@@ -1,4 +1,6 @@
-import { useEffect, useState } from 'react';
+import { toast } from 'sonner';
+import { getApiError } from '@/api/client';
+import { useEffect, useState, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -24,10 +26,10 @@ interface Props {
   open: boolean;
   onClose: () => void;
   expense?: Expense | null;
-  onSave: (e: Expense) => void;
-  onDelete?: (id: string) => void;
+  onSave: (e: Expense) => void | Promise<void>;
+  onDelete?: (id: string) => void | Promise<void>;
   /** Encerra a série desta despesa. Ausente = a tela não oferece o encerrar. */
-  onEndRecurrence?: (id: string) => void;
+  onEndRecurrence?: (id: string) => void | Promise<void>;
 }
 
 const empty = (kind: ExpenseKind): Expense => ({
@@ -44,6 +46,25 @@ export function ExpenseModal({ open, onClose, expense, onSave, onDelete, onEndRe
   const [e, setE] = useState<Expense>(empty('PREVISAO'));
   const [confirmDel, setConfirmDel] = useState(false);
   const [confirmEnd, setConfirmEnd] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const saving = useRef(false);
+  const persist = async (operation: () => void | Promise<void>) => {
+    if (saving.current) return;
+    saving.current = true;
+    setIsSaving(true);
+    try {
+      await operation();
+      setConfirmDel(false);
+      setConfirmEnd(false);
+      onClose();
+    } catch (err) {
+      toast.error(getApiError(err));
+    } finally {
+      saving.current = false;
+      setIsSaving(false);
+    }
+  };
+
 
   useEffect(() => {
     if (open) {
@@ -80,7 +101,7 @@ export function ExpenseModal({ open, onClose, expense, onSave, onDelete, onEndRe
 
   if (step === 'pick') {
     return (
-      <Dialog open={open} onOpenChange={onClose}>
+      <Dialog open={open} onOpenChange={() => { if (!saving.current) onClose(); }}>
         <DialogContent className="max-w-md">
           <DialogHeader><DialogTitle>Adicionar Despesa</DialogTitle></DialogHeader>
           <p className="text-sm text-muted-foreground">Escolha o tipo:</p>
@@ -108,7 +129,7 @@ export function ExpenseModal({ open, onClose, expense, onSave, onDelete, onEndRe
   }
 
   return (
-    <Dialog open={open} onOpenChange={onClose}>
+    <Dialog open={open} onOpenChange={() => { if (!saving.current) onClose(); }}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto print:max-w-none print:overflow-visible">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -261,8 +282,8 @@ export function ExpenseModal({ open, onClose, expense, onSave, onDelete, onEndRe
           </div>
           <div className="flex gap-2">
             <Button variant="outline" onClick={() => window.print()} className="gap-1.5"><Printer className="h-4 w-4" /> Imprimir</Button>
-            <Button variant="outline" onClick={onClose}>Cancelar</Button>
-            <Button onClick={() => { onSave(e); onClose(); }}>Salvar</Button>
+            <Button variant="outline" disabled={isSaving} onClick={onClose}>Cancelar</Button>
+            <Button disabled={isSaving} onClick={() => persist(() => onSave(e))}>{isSaving ? 'Salvando...' : 'Salvar'}</Button>
           </div>
         </div>
       </DialogContent>
@@ -287,7 +308,8 @@ export function ExpenseModal({ open, onClose, expense, onSave, onDelete, onEndRe
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              onClick={() => { onDelete?.(e.id); setConfirmDel(false); onClose(); }}
+              disabled={isSaving}
+              onClick={event => { event.preventDefault(); persist(() => onDelete?.(e.id)); }}
             >
               Excluir
             </AlertDialogAction>
@@ -308,7 +330,8 @@ export function ExpenseModal({ open, onClose, expense, onSave, onDelete, onEndRe
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => { onEndRecurrence?.(e.id); setConfirmEnd(false); onClose(); }}
+              disabled={isSaving}
+              onClick={event => { event.preventDefault(); persist(() => onEndRecurrence?.(e.id)); }}
             >
               Encerrar
             </AlertDialogAction>
