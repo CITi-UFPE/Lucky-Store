@@ -66,6 +66,7 @@ def list_quotes(
     sort_dir: str = Query(default="desc", pattern="^(asc|desc)$"),
     eligible_for_order: Optional[bool] = Query(default=None, description="Se true, retorna apenas cotações fechadas ou caídas"),
     numero_requisicao: Optional[str] = Query(default=None),
+    numero: Optional[int] = Query(default=None, ge=1, le=2147483647, description="Índice exato da cotação"),
     busca: Optional[str] = Query(
         default=None,
         description="Procura em indice (exato), Nº de requisicao, cliente e empresa",
@@ -80,6 +81,7 @@ def list_quotes(
         sort_by=sort_by, sort_dir=sort_dir,
         eligible_for_order=eligible_for_order,
         numero_requisicao=numero_requisicao,
+        numero=numero,
         busca=busca,
     )
     return CotacaoListResponse(items=items, total=total, page=page, limit=limit, pages=pages)

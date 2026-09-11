@@ -8,10 +8,15 @@ cotação não existe.
 import re
 import uuid
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
+
+import pytest
+from sqlalchemy import create_engine, text
+from sqlalchemy.orm import Session
 
 from app.api.routes.cotacoes import router as cotacoes_router
-from app.services.cotacao import _filtro_de_busca
+from app.services.cotacao import CotacaoService, _filtro_de_busca
+from app.models.cotacao import Cotacao
 
 from tests.test_routes_cotacoes import _fake_cotacao, _COTACAO_PAYLOAD
 
@@ -23,6 +28,22 @@ TELA = BACKEND.parent / "src" / "pages" / "Sales.tsx"
 # ── A rota repassa o termo ────────────────────────────────────────────────────
 
 class TestRota:
+
+    def test_repassa_indice_exato_para_a_auditoria(self, make_test_client):
+        client = make_test_client(cotacoes_router)
+        with patch("app.api.routes.cotacoes.CotacaoService.list", return_value=([], 0, 0)) as listar:
+            response = client.get("/quotes?numero=47&limit=1")
+        assert response.status_code == 200
+        assert listar.call_args.kwargs["numero"] == 47
+        assert listar.call_args.kwargs["numero_requisicao"] is None
+        assert listar.call_args.kwargs["busca"] is None
+
+    @pytest.mark.parametrize("numero", ["REQ-001", "0", "-1", "47.5", "2147483648"])
+    def test_rejeita_indice_invalido(self, make_test_client, numero):
+        client = make_test_client(cotacoes_router)
+        with patch("app.api.routes.cotacoes.CotacaoService.list") as listar:
+            assert client.get(f"/quotes?numero={numero}").status_code == 422
+        listar.assert_not_called()
 
     def test_repassa_a_busca_para_o_service(self, make_test_client, mock_db):
         client = make_test_client(cotacoes_router)
@@ -40,6 +61,24 @@ class TestRota:
 
 
 # ── O filtro ──────────────────────────────────────────────────────────────────
+
+@pytest.mark.parametrize("indice, esperado", [(47, [47]), (48, [])])
+def test_indice_da_auditoria_nao_encontra_numero_de_requisicao(indice, esperado):
+    engine = create_engine("sqlite:///:memory:")
+    with engine.begin() as conn:
+        conn.execute(text("""CREATE TABLE cotacoes (
+            id TEXT PRIMARY KEY, numero INTEGER, numero_requisicao TEXT, deleted_at DATETIME)"""))
+        conn.execute(text("""INSERT INTO cotacoes VALUES
+            ('a', 47, 'REQ-999', NULL), ('b', 147, '47', NULL), ('c', 148, '48', NULL)"""))
+        with Session(bind=conn) as session:
+            db = MagicMock()
+            # Executa os filtros reais, selecionando apenas as colunas da fixture.
+            db.query.return_value = session.query(Cotacao.numero, Cotacao.numero_requisicao)
+            with patch("app.services.cotacao._hydrate_cotacao"):
+                items, total, _ = CotacaoService.list(db, numero=indice, limit=1)
+            assert [item.numero for item in items] == esperado
+            assert total == len(esperado)
+    engine.dispose()
 
 def _sql(termo: str) -> str:
     """O SQL que o filtro gera, para inspecionar sem precisar de banco."""

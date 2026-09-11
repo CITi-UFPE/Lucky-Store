@@ -261,6 +261,7 @@ class CotacaoService:
         eligible_for_order: Optional[bool] = None,
         numero_requisicao: Optional[str] = None,
         busca: Optional[str] = None,
+        numero: Optional[int] = None,
     ):
 
         q = db.query(Cotacao).filter(Cotacao.deleted_at.is_(None))
@@ -273,6 +274,8 @@ class CotacaoService:
             q = q.filter(Cotacao.cliente.ilike(f"%{cliente}%"))
         if numero_requisicao:
             q = q.filter(Cotacao.numero_requisicao.ilike(f"%{numero_requisicao}%"))
+        if numero is not None:
+            q = q.filter(Cotacao.numero == numero)
         if busca and busca.strip():
             q = q.filter(_filtro_de_busca(busca.strip()))
         if data_inicio:

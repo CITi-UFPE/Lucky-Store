@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useId, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { AuditLogTable } from '@/components/AuditLogTable'
 import { apiClient } from '@/api/client'
+import type { CotacaoResponse } from '@/types/api'
 
 // ─── Generic search + audit panel ─────────────────────────────────────────────
 
@@ -20,6 +21,7 @@ interface AuditSearchPanelProps {
 function AuditSearchPanel({
   label, placeholder, resolveId, historyUrl, queryKey,
 }: AuditSearchPanelProps) {
+  const inputId = useId()
   const [input, setInput] = useState('')
   const [entityId, setEntityId] = useState<string | null>(null)
   const [notFound, setNotFound] = useState(false)
@@ -47,8 +49,9 @@ function AuditSearchPanel({
     <div className="space-y-4">
       <div className="flex gap-3 items-end">
         <div className="flex-1 space-y-1">
-          <Label>{label}</Label>
+          <Label htmlFor={inputId}>{label}</Label>
           <Input
+            id={inputId}
             placeholder={placeholder}
             value={input}
             onChange={e => setInput(e.target.value)}
@@ -84,9 +87,14 @@ async function resolveOrderId(numeroOs: string): Promise<string | null> {
   return data?.items?.[0]?.id ?? null
 }
 
-async function resolveQuoteId(numeroRequisicao: string): Promise<string | null> {
-  const { data } = await apiClient.get('/quotes', { params: { numero_requisicao: numeroRequisicao, limit: 1 } })
-  return data?.items?.[0]?.id ?? null
+async function resolveQuoteId(indice: string): Promise<string | null> {
+  if (!/^\d+$/.test(indice)) return null
+  const numero = Number(indice)
+  if (!Number.isInteger(numero) || numero < 1 || numero > 2147483647) return null
+  const { data } = await apiClient.get<{ items: Pick<CotacaoResponse, 'id' | 'numero'>[] }>(
+    '/quotes', { params: { numero, limit: 1 } },
+  )
+  return data?.items?.find(cotacao => cotacao.numero === numero)?.id ?? null
 }
 
 async function resolveRmaId(numeroRma: string): Promise<string | null> {
@@ -125,8 +133,8 @@ export default function Admin() {
 
             <TabsContent value="cotacoes">
               <AuditSearchPanel
-                label="Nº Requisição"
-                placeholder="Ex: REQ-001"
+                label="Índice da cotação"
+                placeholder="Ex: 47"
                 resolveId={resolveQuoteId}
                 historyUrl={id => `/quotes/${id}/history`}
                 queryKey={id => ['audit', 'cotacao', id]}
