@@ -310,7 +310,18 @@ export interface CreateCotacaoPayload {
   }[];
 }
 
-export type UpdateCotacaoPayload = Partial<Omit<CreateCotacaoPayload, 'id_loja' | 'id_vendedor' | 'itens'>>;
+/**
+ * `id_loja` e `id_vendedor` ESTÃO aqui — mesmo motivo de UpdatePedidoPayload.
+ *
+ * Ficavam de fora, o backend sempre aceitou (CotacaoUpdate tem os dois e o
+ * update faz setattr em tudo que chega), e trocar a empresa ou o vendedor de
+ * uma cotação já salva não chegava ao banco: mudava na tela, respondia 200,
+ * dizia que salvou, e sumia ao recarregar.
+ *
+ * `itens` continua fora: item tem rota própria, porque editar a lista é
+ * adicionar, remover e atualizar um a um, não substituir um campo.
+ */
+export type UpdateCotacaoPayload = Partial<Omit<CreateCotacaoPayload, 'itens'>>;
 
 export interface UpdateCotacaoFasePayload {
   status_enviada?: boolean;

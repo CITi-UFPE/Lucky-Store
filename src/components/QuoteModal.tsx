@@ -705,6 +705,31 @@ export function QuoteModal({ open, onClose, quote, onSave, onDelete, nextIndex }
         prazo_pagamento: q.paymentDeadline || undefined,
         garantia: q.warranty || undefined,
       };
+
+      // A empresa e o vendedor só iam no POST. No PUT nem eram enviados:
+      // trocar um dos dois numa cotação já salva mudava a tela, a API
+      // respondia 200, a mensagem de sucesso saía, e o banco continuava igual.
+      // Mesmo defeito que a OS tinha.
+      //
+      // Vazio nunca é enviado (id em branco vira 422 e leva o formulário
+      // junto), mas o que MUDOU e não resolve para o salvamento com erro na
+      // tela, em vez de gravar o resto e deixar para trás justamente o campo
+      // que a pessoa queria mudar.
+      const lojaIdEdicao = q.company ? LOJA_IDS[q.company] : '';
+      const vendedorIdEdicao = vendorIdByName(q.seller ?? '', q.company);
+
+      if (quote && q.company !== quote.company && !lojaIdEdicao) {
+        toast.error(`Não consegui identificar a empresa "${q.company}". Recarregue a página e tente de novo.`);
+        return;
+      }
+      if (quote && q.seller !== quote.seller && !vendedorIdEdicao) {
+        toast.error(`Não consegui identificar o vendedor "${q.seller}". Recarregue a página e tente de novo.`);
+        return;
+      }
+
+      if (lojaIdEdicao) payload.id_loja = lojaIdEdicao;
+      if (vendedorIdEdicao) payload.id_vendedor = vendedorIdEdicao;
+
       updateQuote(payload, {
         onSuccess: async () => {
           try {
