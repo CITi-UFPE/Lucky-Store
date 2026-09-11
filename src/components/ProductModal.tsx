@@ -175,14 +175,17 @@ export function ProductModal({ open, onClose, order, item, onSave }: Props) {
       ...order,
       items: order.items.map(i => i.id === item.id ? updatedItem : i),
     };
-    updatedOrder.finalProductCost = updatedOrder.items.reduce((s, i) => s + (i.purchaseValue || 0), 0);
+    updatedOrder.finalProductCost = updatedOrder.items.reduce((s, i) => s + (i.purchaseValue || 0), 0)
+      + (updatedOrder.directSupplyItems || []).reduce((s, i) => s + i.purchaseValue * i.quantity, 0);
+    updatedOrder.purchaseTaxValue = updatedOrder.finalProductCost * (updatedOrder.purchaseTaxPercent || 0) / 100;
 
     const firstSub = subs[0];
     const dominantStatus: ItemStatus = subs.some(s => s.status === 'To Buy')
       ? 'To Buy'
       : subs.some(s => s.status === 'Bought')
       ? 'Bought'
-      : 'In Stock';
+      : subs.length > 0 ? 'In Stock' : item.status;
+    updatedItem.status = dominantStatus;
 
     const payload: Record<string, unknown> = {};
     // Sempre vai, inclusive vazio: e assim que apagar a anotacao funciona. O
@@ -209,6 +212,10 @@ export function ProductModal({ open, onClose, order, item, onSave }: Props) {
     onSave(updatedOrder);
     onClose();
     qc.invalidateQueries({ queryKey: orderKeys.lists() });
+    qc.invalidateQueries({ queryKey: orderKeys.detail(order.id) });
+    qc.invalidateQueries({ queryKey: orderKeys.itemHistory(order.id, item.id) });
+    qc.invalidateQueries({ queryKey: ['dashboard'] });
+    qc.invalidateQueries({ queryKey: ['financial-orders'] });
   };
 
   const [stColor, stBg, stBorder] = STATUS_HEX[item.status] || STATUS_HEX['To Buy'];

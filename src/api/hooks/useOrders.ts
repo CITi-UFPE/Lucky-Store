@@ -94,6 +94,8 @@ export function useCreateOrder() {
         .then((r) => r.data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: orderKeys.lists() });
+      qc.invalidateQueries({ queryKey: ['dashboard'] });
+      qc.invalidateQueries({ queryKey: ['financial-orders'] });
     },
   });
 }
@@ -107,6 +109,8 @@ export function useUpdateOrder(id: string) {
     onSuccess: (data) => {
       qc.setQueryData(orderKeys.detail(id), data);
       qc.invalidateQueries({ queryKey: orderKeys.lists() });
+      qc.invalidateQueries({ queryKey: ['dashboard'] });
+      qc.invalidateQueries({ queryKey: ['financial-orders'] });
       qc.invalidateQueries({ queryKey: orderKeys.history(id) });
     },
   });
@@ -127,6 +131,8 @@ export function useUpdateOrderStatus(id: string) {
     onSuccess: (data) => {
       qc.setQueryData(orderKeys.detail(id), data);
       qc.invalidateQueries({ queryKey: orderKeys.lists() });
+      qc.invalidateQueries({ queryKey: ['dashboard'] });
+      qc.invalidateQueries({ queryKey: ['financial-orders'] });
       qc.invalidateQueries({ queryKey: orderKeys.history(id) });
     },
   });
@@ -146,6 +152,8 @@ export function useUpdateOrderStatusInline() {
         .then((r) => r.data),
     onSuccess: (_data, { id }) => {
       qc.invalidateQueries({ queryKey: orderKeys.lists() });
+      qc.invalidateQueries({ queryKey: ['dashboard'] });
+      qc.invalidateQueries({ queryKey: ['financial-orders'] });
       qc.invalidateQueries({ queryKey: orderKeys.history(id) });
     },
   });
@@ -159,6 +167,8 @@ export function useUpdateItemStatus() {
       apiClient.patch(`/pedidos/${pedidoId}/items/${itemId}/status`, { new_status: newStatus }).then((r) => r.data),
     onSuccess: (_data, { pedidoId, itemId }) => {
       qc.invalidateQueries({ queryKey: orderKeys.lists() });
+      qc.invalidateQueries({ queryKey: ['dashboard'] });
+      qc.invalidateQueries({ queryKey: ['financial-orders'] });
       qc.invalidateQueries({ queryKey: orderKeys.itemHistory(pedidoId, itemId) });
     },
   });
@@ -171,6 +181,8 @@ export function useDeleteOrder() {
     mutationFn: (id) => apiClient.delete(`/pedidos/${id}`).then((r) => r.data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: orderKeys.lists() });
+      qc.invalidateQueries({ queryKey: ['dashboard'] });
+      qc.invalidateQueries({ queryKey: ['financial-orders'] });
     },
   });
 }

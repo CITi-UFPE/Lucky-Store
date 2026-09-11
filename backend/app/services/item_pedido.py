@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from app.models.produto import Produto
 from app.schemas.produto import ProdutoCreate, ProdutoUpdate
 from app.services.pedido import PedidoService
+from app.services.product_cost import sync_product_cost
 from app.models.audit_log import AuditLog, AuditAction
 from app.models.status_history import StatusHistory, EntityType
 from app.utils.errors import NotFoundException
@@ -103,6 +104,9 @@ class ItemPedidoService:
         for field, value in changes.items():
             setattr(produto, field, value)
 
+        if changes.keys() & {'valor_compra', 'preco_custo', 'quantidade', 'status'}:
+            sync_product_cost(db, pedido_id, current_user_id)
+
         db.add(AuditLog(
             entity_type="produto",
             entity_id=item_id,
@@ -122,6 +126,7 @@ class ItemPedidoService:
         produto = ItemPedidoService._get_item(db, pedido_id, item_id)
         old_status = produto.status
         produto.status = new_status
+        sync_product_cost(db, pedido_id, current_user_id)
 
         db.add(AuditLog(
             entity_type="produto",

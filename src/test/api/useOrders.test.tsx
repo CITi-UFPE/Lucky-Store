@@ -2,7 +2,7 @@ import { renderHook, waitFor, act } from '@testing-library/react';
 import { createElement } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
-import { useCreateOrder, useUpdateOrder, useDeleteOrder } from '@/api/hooks/useOrders';
+import { useCreateOrder, useUpdateOrder, useDeleteOrder, useUpdateItemStatus, useUpdateOrderStatus, useUpdateOrderStatusInline } from '@/api/hooks/useOrders';
 import { apiClient } from '@/api/client';
 
 vi.mock('@/api/client', () => ({
@@ -31,6 +31,31 @@ const mockOrder = {
   status: 'To Buy',
   numero_os: '1001',
 };
+
+describe('atualização financeira após mudar status', () => {
+  it.each(['item', 'order', 'inline'] as const)('invalida dashboard e financeiro: %s', async (kind) => {
+    vi.mocked(apiClient.patch).mockResolvedValue({ data: mockOrder });
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const dashboardKey = ['dashboard', 'kpis', { mes: 9 }];
+    const financialKey = ['financial-orders'];
+    qc.setQueryData(dashboardKey, { custo: 0 });
+    qc.setQueryData(financialKey, []);
+    const wrapper = ({ children }: { children: React.ReactNode }) =>
+      createElement(QueryClientProvider, { client: qc }, children);
+    const { result } = renderHook(() => ({
+      item: useUpdateItemStatus(), order: useUpdateOrderStatus('order-1'),
+      inline: useUpdateOrderStatusInline(),
+    }), { wrapper });
+    await act(async () => {
+      if (kind === 'item') await result.current.item.mutateAsync({ pedidoId: 'order-1', itemId: 'item-1', newStatus: 'Bought' });
+      else if (kind === 'order') await result.current.order.mutateAsync({ new_status: 'Bought' });
+      else await result.current.inline.mutateAsync({ id: 'order-1', new_status: 'Bought' });
+    });
+    expect(qc.getQueryState(dashboardKey)?.isInvalidated).toBe(true);
+    expect(qc.getQueryState(financialKey)?.isInvalidated).toBe(true);
+    qc.clear();
+  });
+});
 
 describe('useCreateOrder', () => {
   beforeEach(() => vi.clearAllMocks());

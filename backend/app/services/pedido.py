@@ -10,6 +10,7 @@ from sqlalchemy.exc import IntegrityError
 from app.models.pedido import Pedido, PedidoFormaPagamento, CustoPedido, Frete, STATUS_CANCELADO
 from app.models.cliente import Cliente
 from app.services.child_collection import sync_children
+from app.services.product_cost import sync_product_cost
 from app.models.produto import Produto
 from app.models.rma import Rma
 from app.models.loja import Loja
@@ -467,6 +468,8 @@ class PedidoService:
         pedido = PedidoService.get_by_id(db, pedido_id)
         old_status = pedido.status
         pedido.status = new_status
+        if new_status == 'Bought':
+            sync_product_cost(db, pedido_id, current_user_id)
         # Antes isto so LIGAVA a flag. Pedido cancelado e depois reaberto ficava
         # com is_cancelled=True para sempre e sumia do relatorio, mesmo tendo
         # voltado a ser venda.
