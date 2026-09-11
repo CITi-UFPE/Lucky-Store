@@ -849,6 +849,31 @@ export function OrderModal({ open, onClose, order, onSave, nextOS, prefill }: Pr
       };
       const statusChanged = order && o.status !== order.status;
       const sellerId = vendorIdByName((o.seller as string) ?? '', o.company);
+      const lojaId = o.company ? LOJA_IDS[o.company] : '';
+
+      // A empresa e o vendedor da OS só iam no POST. No PUT eles nem eram
+      // enviados: trocar um dos dois numa OS já criada mudava a tela, a API
+      // respondia 200, a mensagem de sucesso saía, e o banco continuava igual.
+      // O vendedor só descobria ao recarregar, quando a troca sumia.
+      //
+      // Vazio nunca é enviado: id em branco vira 422 de uuid_parsing e o
+      // formulário inteiro se perde. Mas silenciar também não serve — foi o
+      // silêncio que escondeu isto —, então quando o campo MUDOU e o id não
+      // resolve, o salvamento para com erro na tela em vez de mentir.
+      const empresaMudou = !!order && o.company !== order.company;
+      const vendedorMudou = !!order && o.seller !== order.seller;
+
+      if (empresaMudou && !lojaId) {
+        toast.error(`Não consegui identificar a empresa "${o.company}". Recarregue a página e tente de novo.`);
+        return;
+      }
+      if (vendedorMudou && !sellerId) {
+        toast.error(`Não consegui identificar o vendedor "${o.seller}". Recarregue a página e tente de novo.`);
+        return;
+      }
+
+      if (lojaId) payload.id_loja = lojaId;
+      if (sellerId) payload.id_vendedor = sellerId;
 
       // ── Item diff ───────────────────────────────────────────────────────────
       const origItems = order?.items ?? [];

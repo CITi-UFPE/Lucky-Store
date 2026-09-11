@@ -154,7 +154,20 @@ export interface CreatePedidoPayload {
   plano_parcelas_pedido?: { date: string; value: number }[];
 }
 
-export type UpdatePedidoPayload = Partial<Omit<CreatePedidoPayload, 'id_loja' | 'id_vendedor' | 'nome_cliente' | 'status'>>;
+/**
+ * `id_loja` e `id_vendedor` ESTÃO aqui.
+ *
+ * Eles ficavam de fora deste tipo, e o backend sempre os aceitou no PUT
+ * (PedidoUpdate tem os dois). O efeito era invisível: trocar a empresa ou o
+ * vendedor de uma OS já criada aparecia na tela, a API respondia 200, a mensagem
+ * de sucesso saía — e nada disso chegava ao banco, porque os campos nem eram
+ * enviados. Só recarregando a página é que a troca desaparecia.
+ *
+ * `nome_cliente` e `status` continuam fora por motivo real: o primeiro não
+ * existe em PedidoUpdate, e o segundo tem rota própria (mudar status dispara
+ * cancelamento, histórico e outras regras que um PUT não pode disparar de lado).
+ */
+export type UpdatePedidoPayload = Partial<Omit<CreatePedidoPayload, 'nome_cliente' | 'status'>>;
 
 export interface PedidoFilters {
   page?: number;
